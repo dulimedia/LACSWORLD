@@ -1,0 +1,10 @@
+{
+  "name": "studio-lot-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "context:build": "node scripts/build-context.js",
+    "test:events": "node ./tests/event-contract-smoke.js"
+  },
+  "devDependencies": {}
+}

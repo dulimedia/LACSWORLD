@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom sage green colors from user's palette */
+.bg-sage-50 {
+  background-color: #f4f7f5;
+}
+
+.bg-sage-100 {
+  background-color: #e8f2ea;
+}
+
+.bg-sage-200 {
+  background-color: #d1e5d6;
+}
+
+.bg-sage-400 {
+  background-color: #9cc4a7;
+}
+
+.bg-sage-500 {
+  background-color: #7fb08a;
+}
+
+.text-sage-700 {
+  color: #5a8065;
+}
+
+.text-sage-800 {
+  color: #4a6b55;
+}
+
+.border-sage-200 {
+  border-color: #d1e5d6;
+}
+
+.border-sage-400 {
+  border-color: #9cc4a7;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
