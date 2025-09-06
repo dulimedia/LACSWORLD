@@ -204,7 +204,7 @@ function HDRIEnvironment() {
 }
 
 function BoundingSphere({ onBoundingSphereData }: { onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void }) {
-  const { scene } = useGLTF('/models/bounding sphere.glb');
+  const { scene } = useGLTF(import.meta.env.BASE_URL + 'models/bounding sphere.glb');
 
   React.useEffect(() => {
     if (scene) {

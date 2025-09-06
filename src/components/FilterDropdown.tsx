@@ -48,7 +48,7 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
 
   useEffect(() => {
     // Fetch the pre-generated index in public/
-    fetch('/models/boxes_index.json')
+    fetch(import.meta.env.BASE_URL + 'models/boxes_index.json')
       .then((res) => res.json())
       .then((data: TreeNode) => setTree(data))
       .catch((err) => {

@@ -117,11 +117,11 @@ export const useGLBState = create<GLBState>((set, get) => ({
           // Special case for Tower Building - files are directly in building folder
           let path;
           if (building === "Tower Building") {
-            path = `/models/boxes/${building}/${unit}.glb`;
+            path = import.meta.env.BASE_URL + `models/boxes/${building}/${unit}.glb`;
           } else {
             // Handle empty floor strings to avoid double slashes
             const floorPath = floor ? `/${floor}` : '';
-            path = `/models/boxes/${building}${floorPath}/${unit}.glb`;
+            path = import.meta.env.BASE_URL + `models/boxes/${building}${floorPath}/${unit}.glb`;
           }
           
           

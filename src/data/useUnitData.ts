@@ -104,7 +104,7 @@ export const useUnitData = (): UseUnitDataResult => {
 
     try {
       // Fetch the pre-generated index from public/
-      const response = await fetch('/models/boxes_index.json');
+      const response = await fetch(import.meta.env.BASE_URL + 'models/boxes_index.json');
       if (!response.ok) {
         throw new Error(`Failed to load boxes_index.json: ${response.status}`);
       }

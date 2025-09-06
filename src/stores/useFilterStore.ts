@@ -79,7 +79,7 @@ export const useFilterStore = create<FilterState>((set, get) => ({
     }
     
     // Load boxes index to determine which units should be active
-    fetch('/models/boxes_index.json')
+    fetch(import.meta.env.BASE_URL + 'models/boxes_index.json')
       .then(res => res.json())
       .then((boxesIndex) => {
         const activeUnits = getUnitsForSelection(filter, boxesIndex);
