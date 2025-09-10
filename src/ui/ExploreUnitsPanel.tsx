@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { useExploreState, type UnitRecord } from '../store/exploreState';
 import { useGLBState } from '../store/glbState';
+import { useUnitStore } from '../stores/useUnitStore';
 import { UnitHoverPreview } from '../components/UnitHoverPreview';
 import { FloorplanViewer } from '../components/FloorplanViewer';
+import { preloadFloorFloorplans } from '../services/floorplanService';
 
 /**
  * Utility: normalize a filename like "F-100.glb" => "f-100"
@@ -42,6 +44,7 @@ interface ExploreUnitsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onRequest?: (unitKey: string, unitName: string) => void;
+  onExpandFloorplan?: (floorplanUrl: string, unitName: string, unitData?: any) => void;
 }
 
 interface BuildingNodeProps {
@@ -96,6 +99,7 @@ const UnitRow: React.FC<UnitRowProps> = ({
       onMouseLeave={() => onHover(null)}
       onClick={() => {
         if (!isDimmed) {
+          onHover(null); // Clear hover immediately on click
           onSelect(unit.unit_key);
         }
       }}
@@ -138,6 +142,22 @@ const FloorNode: React.FC<FloorNodeProps> = ({
 }) => {
   const { getUnitsByFloor, getUnitData, showAvailableOnly, hoveredUnitKey, selectedUnitKey, setHovered, setSelected } = useExploreState();
   const { selectUnit } = useGLBState();
+  const { setHoveredUnit } = useUnitStore();
+  
+  // Wrapper function to handle both hover states
+  const handleUnitHover = (unitKey: string | null) => {
+    setHovered(unitKey); // For the explore panel UI state
+    
+    // Convert unitKey to unit name for the 3D highlighting
+    if (unitKey) {
+      const unitData = getUnitData(unitKey);
+      if (unitData && unitData.unit_name) {
+        setHoveredUnit(unitData.unit_name);
+      }
+    } else {
+      setHoveredUnit(null);
+    }
+  };
   
   const handleUnitSelect = (unitKey: string) => {
     // Extract unit name from the unit data
@@ -153,6 +173,8 @@ const FloorNode: React.FC<FloorNodeProps> = ({
       
       // Navigate to details view if we have the handler
       if (onUnitSelect) {
+        // Clear hover state when selecting a unit
+        handleUnitHover(null);
         onUnitSelect(unitData);
       }
     }
@@ -169,6 +191,17 @@ const FloorNode: React.FC<FloorNodeProps> = ({
 
   const availableCount = units.filter(unit => unit.status === 'Available').length;
   const totalCount = units.length;
+  
+  // Preload floorplans when floor is expanded
+  useEffect(() => {
+    if (isExpanded && units.length > 0) {
+      preloadFloorFloorplans(units).then(() => {
+        console.log(`✅ Preloaded ${units.length} floorplans for ${building}/${floor}`);
+      }).catch(error => {
+        console.warn(`Failed to preload some floorplans for ${building}/${floor}`, error);
+      });
+    }
+  }, [isExpanded, units, building, floor]);
 
   return (
     <div className="border-t border-gray-100">
@@ -204,7 +237,7 @@ const FloorNode: React.FC<FloorNodeProps> = ({
               isSelected={selectedUnitKey === unit.unit_key}
               isHovered={hoveredUnitKey === unit.unit_key}
               isDimmed={showAvailableOnly && unit.status !== 'Available'}
-              onHover={setHovered}
+              onHover={handleUnitHover}
               onSelect={handleUnitSelect}
             />
           ))}
@@ -305,7 +338,8 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
 export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   isOpen,
   onClose,
-  onRequest
+  onRequest,
+  onExpandFloorplan
 }) => {
   const { 
     showAvailableOnly, 
@@ -315,6 +349,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     selectedUnitKey,
     getUnitData,
     setSelected,
+    setHovered,
     setUnitDetailsOpen,
     setShow3DPopup
   } = useExploreState();
@@ -334,9 +369,19 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   const [currentView, setCurrentView] = useState<'explore' | 'details'>('explore');
   const [selectedUnitDetails, setSelectedUnitDetails] = useState<any>(null);
 
-  // Resizing state
-  const [panelWidth, setPanelWidth] = useState(320); // 80 * 4 = 320px (w-80)
-  const [panelHeight, setPanelHeight] = useState(625); // max-h-[625px] - 25% taller than 500px
+  // Resizing state with mobile-responsive defaults
+  const [panelWidth, setPanelWidth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 ? Math.min(340, window.innerWidth - 16) : 320;
+    }
+    return 320;
+  });
+  const [panelHeight, setPanelHeight] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 ? Math.min(700, window.innerHeight - 120) : 625;
+    }
+    return 625;
+  });
   const [isResizing, setIsResizing] = useState<'width' | 'height' | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const resizeStartRef = useRef<{width: number, height: number, startX: number, startY: number} | null>(null);
@@ -380,6 +425,24 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         console.warn('Failed to load boxes_index.json', err);
         setTree(null);
       });
+  }, []);
+
+  // Handle window resize for mobile responsiveness
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        const newWidth = Math.min(340, window.innerWidth - 16);
+        const newHeight = Math.min(700, window.innerHeight - 120);
+        setPanelWidth(newWidth);
+        setPanelHeight(newHeight);
+      } else {
+        setPanelWidth(320);
+        setPanelHeight(625);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Resize handlers
@@ -509,6 +572,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       const isAvailable = unitData ? unitData.status === 'Available' : false;
       const isDimmed = showAvailableOnly && !isAvailable;
 
+      // Hide unavailable units completely if showAvailableOnly is enabled
+      if (showAvailableOnly && !isAvailable) {
+        return null;
+      }
+
       return (
         <div
           key={path}
@@ -537,15 +605,8 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               const { hoverUnit } = useGLBState.getState();
               const normalizedUnitName = displayName.replace(/\.glb$/i, '');
               
-              // Special cases for buildings with undefined/empty floors
-              let effectiveFloor = floor;
-              if (building === "Tower Building" && !floor) {
-                effectiveFloor = "Main Floor";
-              } else if (building === "Stages" && !floor) {
-                effectiveFloor = "";
-              }
-              
-              hoverUnit(building, effectiveFloor, normalizedUnitName);
+              // Pass the floor as-is - let hoverUnit handle the key construction logic
+              hoverUnit(building, floor, normalizedUnitName);
             }
           }}
           onMouseMove={(e) => {
@@ -561,9 +622,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
             setHoveredUnit(null);
             
             // Dispatch clear hover event
-            window.dispatchEvent(new CustomEvent('unit-hover-update', { 
-              detail: null 
-            }));
+            window.dispatchEvent(new CustomEvent('unit-hover-clear'));
             
             // Clear scene highlighting
             const { hoverUnit } = useGLBState.getState();
@@ -575,10 +634,10 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               // Set the selected unit using the correct key
               const normalizedUnitName = displayName.replace(/\.glb$/i, '');
               
-              // Check if this unit is already selected - if so, don't reselect
+              // Check if this unit is already selected - if so, still open details
               if (selectedUnitKey === actualUnitKey) {
-                console.log('🔄 Unit already selected, ignoring duplicate click');
-                return;
+                console.log('🔄 Unit already selected, but still opening details view');
+                // Don't return - continue to open details view
               }
               
               setSelected(actualUnitKey);
@@ -610,6 +669,8 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               
               setSelectedUnitDetails(finalUnitData);
               setCurrentView('details');
+              // Clear the hover state when showing details
+              handleUnitHover(null);
               console.log('🎯 Sliding to details view for unit:', normalizedUnitName);
             }
           }}
@@ -705,6 +766,19 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           <div key={nodePath} className="border-b border-gray-100 last:border-b-0">
             <div
               className="px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors duration-150"
+              onMouseEnter={() => {
+                if (isFloor) {
+                  const building = parentPath[0];
+                  const { hoverFloor } = useGLBState.getState();
+                  hoverFloor(building, node.name);
+                }
+              }}
+              onMouseLeave={() => {
+                if (isFloor) {
+                  const { hoverFloor } = useGLBState.getState();
+                  hoverFloor(null, null);
+                }
+              }}
               onClick={() => {
                 if (isFloor) {
                   const building = parentPath[0];
@@ -764,14 +838,14 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   return (
     <div 
       ref={panelRef}
-      className={`fixed left-6 bg-white bg-opacity-95 backdrop-blur-sm shadow-xl border border-gray-200 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-lg overflow-hidden ${
+      className={`fixed left-2 sm:left-6 bg-white bg-opacity-95 backdrop-blur-sm shadow-xl border border-gray-200 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-lg overflow-hidden ${
         isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
       }`}
       style={{
         width: `${panelWidth}px`,
         height: `${panelHeight}px`,
-        bottom: '64px', // 16 * 4 = 64px (bottom-16)
-        maxHeight: 'calc(100vh - 120px)', // Leave space for button area
+        bottom: window.innerWidth < 768 ? '80px' : '64px', // More space for mobile buttons
+        maxHeight: window.innerWidth < 768 ? 'calc(100vh - 160px)' : 'calc(100vh - 120px)', // Better mobile fit
       }}
     >
       {/* Top resize handle */}
@@ -857,20 +931,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-150"
-                    title="Expand View"
-                  >
-                    <Expand size={14} className="text-gray-600" />
-                  </button>
-                  <button
-                    className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-150"
-                    title="Share Unit"
-                  >
-                    <Share size={14} className="text-gray-600" />
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -914,7 +974,21 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   <div>
                     <p className="text-sm font-medium text-gray-500">Type</p>
                     <p className="text-lg font-semibold text-gray-900">
-                      {selectedUnitDetails?.unit_type || 'Commercial'}
+                      {selectedUnitDetails?.unit_type || 'Suite'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Kitchen</p>
+                    <p className="text-lg font-semibold text-gray-900">
+{(() => {
+                        console.log('F-170 Kitchen Debug:', {
+                          unit_name: selectedUnitDetails?.unit_name,
+                          kitchen_size: selectedUnitDetails?.kitchen_size,
+                          all_keys: Object.keys(selectedUnitDetails || {}),
+                          raw_data: selectedUnitDetails
+                        });
+                        return selectedUnitDetails?.kitchen_size || 'None';
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -928,50 +1002,55 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                 
                 {/* Floorplan Viewer */}
                 <FloorplanViewer
-                  floorplanUrl={selectedUnitDetails?.floorPlanUrl || null}
+                  floorplanUrl={selectedUnitDetails?.floorplan_url || selectedUnitDetails?.floorPlanUrl || null}
                   unitName={selectedUnitDetails?.unit_name || 'Unit'}
+                  onExpand={onExpandFloorplan}
+                  unitData={selectedUnitDetails}
                 />
+                
               </div>
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-150 flex items-center justify-center space-x-2"
-                  onClick={() => {
-                    console.log('🔥 Request button clicked!', selectedUnitDetails);
-                    
-                    if (onRequest) {
-                      if (selectedUnitDetails) {
-                        // Use the actual unit data
-                        console.log('🚀 Using selectedUnitDetails:', selectedUnitDetails.unit_key, selectedUnitDetails.unit_name);
-                        onRequest(selectedUnitDetails.unit_key || selectedUnitDetails.unit_name, selectedUnitDetails.unit_name);
-                      } else {
-                        // Try to get unit data from the selected unit key in the global state
-                        const { selectedUnitKey } = useExploreState.getState();
-                        console.log('🔍 No selectedUnitDetails, using selectedUnitKey:', selectedUnitKey);
-                        
-                        // Try to get unit data for the selected key
-                        const unitData = getUnitData(selectedUnitKey || '');
-                        console.log('🔍 Retrieved unit data:', unitData);
-                        
-                        if (unitData) {
-                          onRequest(unitData.unit_key, unitData.unit_name);
+                {selectedUnitDetails?.status === 'Available' && (
+                  <button
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-150 flex items-center justify-center space-x-2"
+                    onClick={() => {
+                      console.log('🔥 Request button clicked!', selectedUnitDetails);
+                      
+                      if (onRequest) {
+                        if (selectedUnitDetails) {
+                          // Use the actual unit data
+                          console.log('🚀 Using selectedUnitDetails:', selectedUnitDetails.unit_key, selectedUnitDetails.unit_name);
+                          onRequest(selectedUnitDetails.unit_key || selectedUnitDetails.unit_name, selectedUnitDetails.unit_name);
                         } else {
-                          // Last fallback - use the selected unit key directly
-                          const displayName = selectedUnitKey || 'Selected Unit';
-                          console.log('🔧 Using fallback name:', displayName);
-                          onRequest(selectedUnitKey || 'unknown', displayName);
+                          // Try to get unit data from the selected unit key in the global state
+                          const { selectedUnitKey } = useExploreState.getState();
+                          console.log('🔍 No selectedUnitDetails, using selectedUnitKey:', selectedUnitKey);
+                          
+                          // Try to get unit data for the selected key
+                          const unitData = getUnitData(selectedUnitKey || '');
+                          console.log('🔍 Retrieved unit data:', unitData);
+                          
+                          if (unitData) {
+                            onRequest(unitData.unit_key, unitData.unit_name);
+                          } else {
+                            // Last fallback - use the selected unit key directly
+                            const displayName = selectedUnitKey || 'Selected Unit';
+                            console.log('🔧 Using fallback name:', displayName);
+                            onRequest(selectedUnitKey || 'unknown', displayName);
+                          }
                         }
+                        console.log('✅ onRequest call completed');
+                      } else {
+                        console.error('❌ onRequest function is missing!');
                       }
-                      console.log('✅ onRequest call completed');
-                    } else {
-                      console.error('❌ onRequest function is missing!');
-                    }
-                  }}
-                >
-                  <MessageCircle size={16} />
-                  <span>Request This Unit</span>
-                </button>
+                    }}
+                  >
+                    <MessageCircle size={16} />
+                    <span>Request This Unit</span>
+                  </button>
+                )}
                 
                 <button
                   className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-150 flex items-center justify-center space-x-2"

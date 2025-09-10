@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 
 export function createFresnelHighlightMaterial({
-  color = '#3aa7ff',   // vibrant blue
-  opacity = 0.35,      // translucent
+  color = '#3aa7ff',   // soft blue
+  opacity = 0.25,      // subtle transparency
   bias = 0.1,
   scale = 1.5,
   power = 3.0,
   doubleSide = true,
+  depthTest = false,   // configurable depth testing
+  depthWrite = false,  // configurable depth writing
 }: {
   color?: string;
   opacity?: number;
@@ -14,6 +16,8 @@ export function createFresnelHighlightMaterial({
   scale?: number;
   power?: number;
   doubleSide?: boolean;
+  depthTest?: boolean;
+  depthWrite?: boolean;
 } = {}) {
   const uniforms = {
     uColor:   { value: new THREE.Color(color) },
@@ -25,8 +29,8 @@ export function createFresnelHighlightMaterial({
 
   const mat = new THREE.ShaderMaterial({
     transparent: true,
-    depthTest: false,    // draw on top of everything
-    depthWrite: false,
+    depthTest: depthTest,    // configurable: prevents z-fighting when false
+    depthWrite: depthWrite,   // configurable: prevents depth conflicts when false
     side: doubleSide ? THREE.DoubleSide : THREE.FrontSide,
     uniforms,
     vertexShader: `
@@ -55,14 +59,16 @@ export function createFresnelHighlightMaterial({
         float fresnel = uBias + uScale * pow(1.0 - max(dot(vNormal, cameraToFrag), 0.0), uPower);
         fresnel = clamp(fresnel, 0.0, 1.0);
 
-        // Glow-y translucent edge color with bloom-friendly brightness
-        vec3 col = uColor * (0.4 + 0.6 * fresnel);
+        // Subtle translucent edge color - reduced intensity for better readability
+        vec3 col = uColor * (0.3 + 0.5 * fresnel);  // Reduced from 0.4 + 0.6
         
-        // Boost brightness for bloom effect on edges
-        float bloomBoost = fresnel * 2.0; // Brighten edges more for bloom
-        col = col + uColor * bloomBoost * 0.3; // Add emissive glow
+        // Subtle edge glow - reduced bloom for less overpowering effect
+        float bloomBoost = fresnel * 1.2; // Reduced from 2.0
+        col = col + uColor * bloomBoost * 0.2; // Reduced from 0.3
         
-        gl_FragColor = vec4(col, uOpacity);
+        // Apply opacity with fresnel-based variation for depth
+        float finalOpacity = uOpacity * (0.7 + 0.3 * fresnel);
+        gl_FragColor = vec4(col, finalOpacity);
       }
     `
   });

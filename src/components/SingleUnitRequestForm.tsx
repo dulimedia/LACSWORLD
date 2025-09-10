@@ -57,7 +57,7 @@ export const SingleUnitRequestForm: React.FC<SingleUnitRequestFormProps> = ({
     try {
       // Prepare email data
       const emailData = {
-        to: 'owner@lacenter.com', // Replace with actual owner email
+        to: 'lacenterstudios3d@gmail.com', // LA Center Studios email for unit requests
         subject: `Unit Inquiry - ${unitName} - ${formData.name}`,
         body: `
 New Unit Inquiry

@@ -18,63 +18,63 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
 }) => {
   return (
     <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-2">
-      <div className="flex items-center gap-2">
-        <div className="text-xs text-gray-600 font-medium px-2">Camera</div>
+      <div className="flex items-center gap-2 md:gap-2 sm:gap-1">
+        <div className="text-xs text-gray-600 font-medium px-2 hidden sm:block">Camera</div>
         
         {/* All controls in horizontal line */}
         <button
           onClick={onRotateLeft}
-          className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 
+          className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 bg-blue-50 hover:bg-blue-100 
                      border border-blue-200 rounded-md transition-all duration-200 
-                     hover:shadow-md active:scale-95"
+                     hover:shadow-md active:scale-95 touch-manipulation"
           title="Rotate Left"
         >
-          <RotateCcw size={14} className="text-blue-600" />
+          <RotateCcw size={16} className="text-blue-600 sm:w-3.5 sm:h-3.5" />
         </button>
         
         <button
           onClick={onRotateRight}
-          className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 
+          className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 bg-blue-50 hover:bg-blue-100 
                      border border-blue-200 rounded-md transition-all duration-200 
-                     hover:shadow-md active:scale-95"
+                     hover:shadow-md active:scale-95 touch-manipulation"
           title="Rotate Right"
         >
-          <RotateCw size={14} className="text-blue-600" />
+          <RotateCw size={16} className="text-blue-600 sm:w-3.5 sm:h-3.5" />
         </button>
         
         <div className="w-px h-6 bg-gray-300 mx-1"></div>
         
         <button
           onClick={onZoomIn}
-          className="flex items-center justify-center w-8 h-8 bg-green-50 hover:bg-green-100 
+          className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 bg-green-50 hover:bg-green-100 
                      border border-green-200 rounded-md transition-all duration-200 
-                     hover:shadow-md active:scale-95"
+                     hover:shadow-md active:scale-95 touch-manipulation"
           title="Zoom In"
         >
-          <ZoomIn size={14} className="text-green-600" />
+          <ZoomIn size={16} className="text-green-600 sm:w-3.5 sm:h-3.5" />
         </button>
         
         <button
           onClick={onZoomOut}
-          className="flex items-center justify-center w-8 h-8 bg-green-50 hover:bg-green-100 
+          className="flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 bg-green-50 hover:bg-green-100 
                      border border-green-200 rounded-md transition-all duration-200 
-                     hover:shadow-md active:scale-95"
+                     hover:shadow-md active:scale-95 touch-manipulation"
           title="Zoom Out"
         >
-          <ZoomOut size={14} className="text-green-600" />
+          <ZoomOut size={16} className="text-green-600 sm:w-3.5 sm:h-3.5" />
         </button>
         
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
+        <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block"></div>
         
         <button
           onClick={onResetView}
-          className="flex items-center justify-center h-8 px-3 bg-gray-50 hover:bg-gray-100 
+          className="flex items-center justify-center h-10 px-3 sm:h-8 bg-gray-50 hover:bg-gray-100 
                      border border-gray-200 rounded-md transition-all duration-200 
-                     hover:shadow-md active:scale-95"
+                     hover:shadow-md active:scale-95 touch-manipulation"
           title="Reset to Original View"
         >
-          <Home size={14} className="text-gray-600 mr-1" />
-          <span className="text-xs text-gray-700 font-medium">Reset</span>
+          <Home size={16} className="text-gray-600 mr-1 sm:w-3.5 sm:h-3.5" />
+          <span className="text-xs text-gray-700 font-medium hidden sm:inline">Reset</span>
         </button>
       </div>
     </div>

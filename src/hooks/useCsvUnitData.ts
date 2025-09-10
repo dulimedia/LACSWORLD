@@ -21,7 +21,15 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(url, { cache: 'no-store' });
+      const cacheBuster = `?v=${Math.random()}&t=${Date.now()}`;
+      const response = await fetch(url + cacheBuster, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -41,12 +49,14 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
               // Include all units regardless of availability status
               if (unitName) {
                 // Store with multiple possible keys for better matching
+                const floorplanUrl = row['Floorplan'] || row['Column 1'];
                 const unitDataEntry = {
                   name: row.Product,
                   availability: row.Available,
                   size: row.Size,
                   amenities: row.Amenities,
-                  floorPlanUrl: row['Floorplan'] || row['Column 1'],
+                  floorPlanUrl: floorplanUrl,
+                  floorplan_url: floorplanUrl, // Ensure both naming conventions work
                   // Map additional fields for the app
                   unit_name: row.Product,
                   unit_key: unitNameLower,
@@ -57,6 +67,7 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                   unit_type: row.Unit_Type || 'Commercial',
                   kitchen_size: row.Kitchen_Size || 'N/A'
                 };
+                
                 
                 // Store with multiple key formats for flexible matching
                 unitData[unitNameLower] = unitDataEntry; // e.g., "f-100"

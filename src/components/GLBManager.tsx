@@ -3,12 +3,11 @@
  * Do not change ids/schema without updating docs.
  */
 import React, { useEffect, useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGLBState, type GLBNodeInfo } from '../store/glbState';
 import { useExploreState } from '../store/exploreState';
-import FresnelMaterial from '../materials/FresnelMaterial';
+// FresnelMaterial removed - ghost effect is now handled by SelectedUnitOverlay
 
 interface GLBUnitProps {
   node: GLBNodeInfo;
@@ -17,50 +16,24 @@ interface GLBUnitProps {
 const GLBUnit: React.FC<GLBUnitProps> = ({ node }) => {
   const { scene } = useGLTF(node.path);
   const groupRef = useRef<THREE.Group>(null);
-  const fresnelMaterialRef = useRef<FresnelMaterial>();
-  const originalMaterialsRef = useRef<Map<string, THREE.Material>>(new Map());
+  // Material references removed - units are always hidden, ghost effect handled by overlay
   const { selectUnit } = useGLBState();
   const { setSelected } = useExploreState();
   
-  // Update the GLB state store with the loaded object
+  // Update the GLB state store with the loaded object and hide immediately
   useEffect(() => {
     if (groupRef.current && !node.isLoaded) {
+      // Hide the unit immediately on load to prevent any flash of solid material
+      groupRef.current.visible = false;
+      
       const { updateGLBObject } = useGLBState.getState();
       updateGLBObject(node.key, groupRef.current);
     }
   }, [node.key, node.isLoaded]);
 
-  // Create fresnel material
-  const fresnelMaterial = useMemo(() => {
-    const material = new FresnelMaterial({
-      fresnelColor: '#00d5ff',
-      baseColor: '#0777fd', 
-      intensity: 2.0,
-      fresnelAlpha: 0.8,
-      alpha: true
-    });
-    fresnelMaterialRef.current = material;
-    return material;
-  }, []);
+  // Fresnel material removed - ghost effect is handled by SelectedUnitOverlay component
 
-  // Store original materials when component mounts
-  useEffect(() => {
-    if (!groupRef.current) return;
-    
-    const originalMaterials = new Map<string, THREE.Material>();
-    
-    groupRef.current.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.material) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material, index) => {
-          const key = `${child.uuid}_${index}`;
-          originalMaterials.set(key, material.clone());
-        });
-      }
-    });
-    
-    originalMaterialsRef.current = originalMaterials;
-  }, [scene]);
+  // Original materials storage removed - units are always hidden
 
   // Unit clicking disabled - selection only through Explore Units panel
   // const handleClick = (event: any) => {
@@ -74,54 +47,42 @@ const GLBUnit: React.FC<GLBUnitProps> = ({ node }) => {
   //   setSelected(`${node.building}_${node.floor}_${node.unitName}`);
   // };
 
-  // Update visibility based on GLB state
-  // Keep units invisible to let SelectedUnitOverlay handle highlighting
+  // State machine for unit visibility - units are ALWAYS hidden
+  // The SelectedUnitOverlay component handles all visual representation
   useEffect(() => {
     if (!groupRef.current) return;
 
-    // Always keep GLB units invisible - the overlay handles selection highlighting
+    // CRITICAL: Original meshes must ALWAYS be invisible
+    // Only the SelectedUnitOverlay shows the ghost/highlight state
     groupRef.current.visible = false;
-  }, [node.state]);
-
-  // Restore original materials when switching away from glowing
-  useEffect(() => {
-    return () => {
-      if (!groupRef.current) return;
-      
-      // Restore original materials on cleanup or when switching states
-      if (node.state !== 'glowing') {
-        groupRef.current.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.material) {
-            const materials = Array.isArray(child.material) ? child.material : [child.material];
-            materials.forEach((_, index) => {
-              const key = `${child.uuid}_${index}`;
-              const originalMaterial = originalMaterialsRef.current.get(key);
-              if (originalMaterial) {
-                if (Array.isArray(child.material)) {
-                  child.material[index] = originalMaterial;
-                } else {
-                  child.material = originalMaterial;
-                }
-              }
-            });
-          }
-        });
+    
+    // Ensure all child meshes are also hidden
+    groupRef.current.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.visible = false;
       }
-    };
+    });
   }, [node.state]);
 
-  // Animate the fresnel material
-  useFrame(() => {
-    if (fresnelMaterialRef.current && node.state === 'glowing') {
-      fresnelMaterialRef.current.update();
-    }
-  });
+  // Material restoration removed - units always use original materials (hidden)
+
+  // Animation removed - ghost effect animation handled by SelectedUnitOverlay
 
   // Clone the scene to avoid sharing materials between instances
-  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  const clonedScene = useMemo(() => {
+    const cloned = scene.clone();
+    // Immediately hide the cloned scene to prevent any flash
+    cloned.visible = false;
+    cloned.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.visible = false;
+      }
+    });
+    return cloned;
+  }, [scene]);
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} visible={false}>
       <primitive object={clonedScene} />
     </group>
   );

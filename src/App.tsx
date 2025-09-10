@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import { EffectComposer, Vignette, DepthOfField, Bloom } from '@react-three/postprocessing';
-import { MessageCircle, CheckCircle } from 'lucide-react';
+import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
 import { UnitWarehouse } from './components/UnitWarehouse';
 import UnitDetailPopup from './components/UnitDetailPopup';
 import { ExploreUnitsPanel } from './ui/ExploreUnitsPanel';
@@ -14,6 +14,7 @@ import UnitRequestForm from './components/UnitRequestForm';
 import { Unit3DPopup } from './components/Unit3DPopup';
 import { Unit3DPopupOverlay } from './components/Unit3DPopupOverlay';
 import { SingleUnitRequestForm } from './components/SingleUnitRequestForm';
+import { FloorplanPopup } from './components/FloorplanPopup';
 import { NavigationControls } from './components/NavigationControls';
 import { FilterDropdown } from './components/FilterDropdown';
 import { HoverToast } from './ui/HoverToast';
@@ -65,14 +66,14 @@ export const FALLBACK_UNIT_DATA = {
   'f-50': { name: 'f-50', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/First Street Building/Gound Floor/F-50.glb' },
   'f-60': { name: 'f-60', size: '1,400 sq ft', availability: 'Occupied', amenities: 'Mid-size floor unit', glb: 'boxes/First Street Building/Gound Floor/F-60.glb' },
   'f-70': { name: 'f-70', size: '1,900 sq ft', availability: 'Available', amenities: 'Premium floor space', glb: 'boxes/First Street Building/Gound Floor/F-70.glb' },
-  'f-100': { name: 'f-100', size: '2,200 sq ft', availability: 'Available', amenities: 'Large floor unit with high ceilings', glb: 'boxes/First Street Building/First Floor/F-100.glb' },
-  'f-105': { name: 'f-105', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office space', glb: 'boxes/First Street Building/First Floor/F-105.glb' },
+  'f-100': { name: 'f-100', size: '2,200 sq ft', availability: 'Available', amenities: 'Large floor unit with high ceilings', glb: 'boxes/First Street Building/First Floor/F-100.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f100.jpg' },
+  'f-105': { name: 'f-105', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office space', glb: 'boxes/First Street Building/First Floor/F-105.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f105.jpg' },
   'f-110 cr': { name: 'f-110 cr', size: '1,500 sq ft', availability: 'Occupied', amenities: 'Conference room unit', glb: 'boxes/First Street Building/First Floor/F-110 CR.glb' },
-  'f-115': { name: 'f-115', size: '1,600 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/First Street Building/First Floor/F-115.glb' },
-  'f-140': { name: 'f-140', size: '2,400 sq ft', availability: 'Available', amenities: 'Extra large floor space', glb: 'boxes/First Street Building/First Floor/F-140.glb' },
-  'f-150': { name: 'f-150', size: '2,000 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/First Street Building/First Floor/F-150.glb' },
+  'f-115': { name: 'f-115', size: '1,600 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/First Street Building/First Floor/F-115.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f115.jpg' },
+  'f-140': { name: 'f-140', size: '2,400 sq ft', availability: 'Available', amenities: 'Extra large floor space', glb: 'boxes/First Street Building/First Floor/F-140.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f140.jpg' },
+  'f-150': { name: 'f-150', size: '2,000 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/First Street Building/First Floor/F-150.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f150.jpg' },
   'f-160': { name: 'f-160', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/First Street Building/First Floor/F-160.glb' },
-  'f-170': { name: 'f-170', size: '1,900 sq ft', availability: 'Available', amenities: 'Floor unit with loading access', glb: 'boxes/First Street Building/First Floor/F-170.glb' },
+  'f-170': { name: 'f-170', size: '1,900 sq ft', availability: 'Available', amenities: 'Floor unit with loading access', glb: 'boxes/First Street Building/First Floor/F-170.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f170.jpg' },
   'f-175': { name: 'f-175', size: '1,600 sq ft', availability: 'Available', amenities: 'Mid-size floor unit', glb: 'boxes/First Street Building/First Floor/F-175.glb' },
   'f-180': { name: 'f-180', size: '2,100 sq ft', availability: 'Occupied', amenities: 'Large premium floor space', glb: 'boxes/First Street Building/First Floor/F-180 .glb' },
   'f-185': { name: 'f-185', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office' },
@@ -81,7 +82,7 @@ export const FALLBACK_UNIT_DATA = {
   'f-200': { name: 'f-200', size: '2,300 sq ft', availability: 'Occupied', amenities: 'Premium large floor unit' },
   'f-240': { name: 'f-240', size: '2,600 sq ft', availability: 'Available', amenities: 'Extra large floor space' },
   'f-250': { name: 'f-250', size: '2,400 sq ft', availability: 'Available', amenities: 'Large floor unit' },
-  'f-280': { name: 'f-280', size: '2,800 sq ft', availability: 'Available', amenities: 'Extra large premium floor space', floorPlanUrl: '/floorplans/f280.png' },
+  'f-280': { name: 'f-280', size: '2,800 sq ft', availability: 'Available', amenities: 'Extra large premium floor space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f280.jpg' },
   'f-290': { name: 'f-290', size: '2,500 sq ft', availability: 'Occupied', amenities: 'Large floor unit' },
   'f-300': { name: 'f-300', size: '3,000 sq ft', availability: 'Available', amenities: 'Extra large floor space' },
   'f-330': { name: 'f-330', size: '3,200 sq ft', availability: 'Available', amenities: 'Premium extra large unit' },
@@ -97,11 +98,11 @@ export const FALLBACK_UNIT_DATA = {
   'm-40': { name: 'm-40', size: '1,200 sq ft', availability: 'Available', amenities: 'Large mezzanine unit' },
   'm-45': { name: 'm-45', size: '1,000 sq ft', availability: 'Occupied', amenities: 'Mid-size mezzanine' },
   'm-50': { name: 'm-50', size: '1,400 sq ft', availability: 'Available', amenities: 'Large mezzanine space' },
-  'm-120': { name: 'm-120', size: '1,600 sq ft', availability: 'Available', amenities: 'Premium mezzanine unit' },
+  'm-120': { name: 'm-120', size: '1,600 sq ft', availability: 'Available', amenities: 'Premium mezzanine unit', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m120.jpg' },
   'm-130': { name: 'm-130', size: '1,800 sq ft', availability: 'Occupied', amenities: 'Large mezzanine space' },
-  'm-140': { name: 'm-140', size: '1,700 sq ft', availability: 'Available', amenities: 'Mezzanine with office space' },
+  'm-140': { name: 'm-140', size: '1,700 sq ft', availability: 'Available', amenities: 'Mezzanine with office space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m140.jpg' },
   'm-145': { name: 'm-145', size: '1,500 sq ft', availability: 'Available', amenities: 'Mid-size mezzanine' },
-  'm-150': { name: 'm-150', size: '2,000 sq ft', availability: 'Available', amenities: 'Large mezzanine unit' },
+  'm-150': { name: 'm-150', size: '2,000 sq ft', availability: 'Available', amenities: 'Large mezzanine unit', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m150.jpg' },
   'm-160': { name: 'm-160', size: '1,900 sq ft', availability: 'Occupied', amenities: 'Premium mezzanine space' },
   'm-170': { name: 'm-170', size: '2,100 sq ft', availability: 'Available', amenities: 'Large elevated space' },
   'm-180': { name: 'm-180', size: '2,200 sq ft', availability: 'Available', amenities: 'Extra large mezzanine' },
@@ -195,8 +196,14 @@ const CameraController: React.FC<{
   selectedUnit: string | null;
   controlsRef: React.RefObject<any>;
 }> = ({ controlsRef }) => {
+  const { camera } = useThree();
+  
   // Better initial camera settings - flipped 180 degrees and closer
   const defaultTarget = new THREE.Vector3(0, 0, 0);
+  
+  // Mobile gets more zoomed out settings
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const maxDistance = 25; // Back to original max distance
 
   return (
     <OrbitControls
@@ -205,15 +212,28 @@ const CameraController: React.FC<{
       enableZoom={true}
       enableRotate={true}
       minDistance={8}  // Increased zoom cutoff instead of collision detection
-      maxDistance={25} // Reduced max distance so users don't get lost
+      maxDistance={25} // Back to original max distance
       target={defaultTarget}
       dampingFactor={0.25} // Increased damping for smoother, less sensitive movement (was 0.15)
       enableDamping={true}
-      rotateSpeed={0.3} // Reduced rotation sensitivity (was 0.5)
-      zoomSpeed={0.3}   // Reduced zoom sensitivity (was 0.5)
-      panSpeed={0.25}   // Reduced pan sensitivity (was 0.4)
       minPolarAngle={0} // Allow looking straight down
       maxPolarAngle={Math.PI * 0.48} // Prevent camera from going under ground (slightly less than PI/2)
+      
+      // Mobile-specific touch controls
+      touches={{
+        ONE: THREE.TOUCH.ROTATE,     // Single finger rotates
+        TWO: THREE.TOUCH.DOLLY_PAN   // Two fingers zoom and pan
+      }}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      }}
+      
+      // Better mobile sensitivity
+      rotateSpeed={window.innerWidth < 768 ? 0.5 : 0.3}
+      zoomSpeed={window.innerWidth < 768 ? 0.5 : 0.3}
+      panSpeed={window.innerWidth < 768 ? 0.4 : 0.25}
     />
   );
 };
@@ -269,7 +289,7 @@ const DetailsSidebar: React.FC<{
 };
 
 function App() {
-  const { selectedUnit, setSelectedUnit } = useUnitStore();
+  const { selectedUnit, hoveredUnit, setSelectedUnit, setHoveredUnit } = useUnitStore();
   const { drawerOpen, setDrawerOpen, selectedUnitKey, getUnitData, unitDetailsOpen, setUnitDetailsOpen, show3DPopup, setShow3DPopup, hoveredUnitKey } = useExploreState();
   
   // Global hover preview state
@@ -282,11 +302,21 @@ function App() {
   // Listen for hover preview updates from ExploreUnitsPanel
   useEffect(() => {
     const handleHoverUpdate = (event: CustomEvent) => {
+      console.log('🌍 App received unit-hover-update event:', event.detail);
       setGlobalHoverPreview(event.detail);
     };
     
+    const handleHoverClear = () => {
+      console.log('🌍 App clearing global hover preview');
+      setGlobalHoverPreview(null);
+    };
+    
     window.addEventListener('unit-hover-update' as any, handleHoverUpdate);
-    return () => window.removeEventListener('unit-hover-update' as any, handleHoverUpdate);
+    window.addEventListener('unit-hover-clear' as any, handleHoverClear);
+    return () => {
+      window.removeEventListener('unit-hover-update' as any, handleHoverUpdate);
+      window.removeEventListener('unit-hover-clear' as any, handleHoverClear);
+    };
   }, []);
   
   // Debug logging for state changes
@@ -299,7 +329,6 @@ function App() {
   }, [selectedUnitKey]);
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [filterHoveredUnit, setFilterHoveredUnit] = useState<string | null>(null);
-  const [hoveredUnit, setHoveredUnit] = useState<string | null>(null);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [isTopFilterDropdownOpen, setIsTopFilterDropdownOpen] = useState(false);
   const [sphereData, setSphereData] = useState<{center: THREE.Vector3, radius: number} | null>(null);
@@ -310,6 +339,12 @@ function App() {
   const [showSingleUnitRequest, setShowSingleUnitRequest] = useState(false);
   const [requestUnitKey, setRequestUnitKey] = useState<string>('');
   const [requestUnitName, setRequestUnitName] = useState<string>('');
+  const [showFloorplanPopup, setShowFloorplanPopup] = useState(false);
+  const [floorplanPopupData, setFloorplanPopupData] = useState<{
+    floorplanUrl: string;
+    unitName: string;
+    unitData?: any;
+  } | null>(null);
   
   // Camera controls ref for navigation
   const orbitControlsRef = useRef<any>(null);
@@ -396,6 +431,7 @@ function App() {
           return; // Skip duplicate
         }
         
+        
         const unitRecord: UnitRecord = {
           unit_key: primaryKey,
           building: unitData.building || 'Unknown',
@@ -403,7 +439,7 @@ function App() {
           unit_name: unitData.unit_name || unitData.name,
           status: unitData.status === 'Available' ? 'Available' : 'Unavailable',
           area_sqft: unitData.area_sqft || undefined,
-          floorplan_url: unitData.floorPlanUrl,
+          floorplan_url: unitData.floorPlanUrl || unitData.floorplan_url,
           recipients: ['owner@lacenter.com'], // Default recipient
           notes: unitData.amenities
         };
@@ -557,7 +593,7 @@ function App() {
       // Handle reset to default position
       if (resetToDefault) {
         // Animate to initial camera position
-        const initialPosition = new THREE.Vector3(-6, 6, -8);
+        const initialPosition = new THREE.Vector3(-10, 10, -14);
         const initialTarget = new THREE.Vector3(0, 0, 0);
         
         // Lerp the camera position
@@ -675,6 +711,20 @@ function App() {
     setShowRequestForm(true);
   }, []);
   
+  const handleExpandFloorplan = useCallback((floorplanUrl: string, unitName: string, unitData?: any) => {
+    setFloorplanPopupData({
+      floorplanUrl,
+      unitName,
+      unitData
+    });
+    setShowFloorplanPopup(true);
+  }, []);
+  
+  const handleCloseFloorplanPopup = useCallback(() => {
+    setShowFloorplanPopup(false);
+    setFloorplanPopupData(null);
+  }, []);
+  
   const handleModelsLoadingProgress = useCallback((loaded: number, total: number) => {
     const progress = Math.round((loaded / total) * 100);
     console.log(`📊 App received loading progress: ${loaded}/${total} (${progress}%)`);
@@ -710,7 +760,7 @@ function App() {
               {/* LA Center Studios Logo */}
               <div className="mb-8">
                 <img 
-                  src="/textures/la center studios logo.png" 
+                  src={import.meta.env.BASE_URL + "textures/la center studios logo.png"} 
                   alt="LA Center Studios" 
                   className="mx-auto mb-4 max-w-xs h-auto opacity-90"
                   style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
@@ -748,7 +798,7 @@ function App() {
         
         <Canvas
           shadows
-          camera={{ position: [-6, 6, -8], fov: 45 }}
+          camera={{ position: [-10, 10, -14], fov: 45 }}
           style={{ background: '#e0e0e0' }}
           dpr={1} // force 1x pixel ratio for performance
           gl={{
@@ -801,7 +851,7 @@ function App() {
             onUnitHover={setHoveredUnit}
             selectedUnit={selectedUnit}
             unitData={effectiveUnitData}
-            filterHoveredUnit={filterHoveredUnit}
+            filterHoveredUnit={hoveredUnit}
             onBoundingSphereData={setSphereData}
             onLoadingProgress={handleModelsLoadingProgress}
           />
@@ -856,48 +906,141 @@ function App() {
         
         {/* Bottom Controls - Hidden during loading */}
         {!modelsLoading && (
-          <div className="fixed bottom-6 left-6 right-6 z-40 flex justify-between items-end">
-          {/* Explore Units Button - Bottom Left */}
-          <button
-            onClick={handleToggleExploreDrawer}
-            className="bg-white bg-opacity-90 backdrop-blur-sm hover:bg-blue-50 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-gray-200 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
-          >
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span className="text-sm">Explore Units</span>
-            {drawerOpen ? (
-              <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            ) : (
-              <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            )}
-          </button>
+          <>
+            {/* Desktop Layout - Bottom Bar */}
+            <div className="fixed bottom-6 left-6 right-6 z-40 flex justify-between items-end hidden sm:flex">
+              {/* Explore Units Button - Bottom Left */}
+              <button
+                onClick={handleToggleExploreDrawer}
+                className="bg-white bg-opacity-90 backdrop-blur-sm hover:bg-blue-50 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-gray-200 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+              >
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">Explore Units</span>
+                {drawerOpen ? (
+                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
 
-          {/* Center Controls */}
-          <div className="flex items-center space-x-3">
-            {/* Request Button */}
-            <button
-              onClick={handleRequestClick}
-              className="bg-white bg-opacity-90 backdrop-blur-sm hover:bg-blue-50 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
-              title="Submit a request"
-            >
-              <MessageCircle size={16} className="text-gray-600" />
-              <span className="text-sm">Request</span>
-            </button>
-          </div>
+              {/* Center Controls */}
+              <div className="flex items-center space-x-3">
+                {/* Request Button */}
+                <button
+                  onClick={handleRequestClick}
+                  className="bg-white bg-opacity-90 backdrop-blur-sm hover:bg-blue-50 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
+                  title="Submit a request"
+                >
+                  <MessageCircle size={16} className="text-gray-600" />
+                  <span className="text-sm">Request</span>
+                </button>
+              </div>
 
-          {/* Camera Controls - Bottom Right */}
-          <NavigationControls
-            onRotateLeft={handleRotateLeft}
-            onRotateRight={handleRotateRight}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onResetView={handleResetView}
-          />
-        </div>
+              {/* Camera Controls - Bottom Right */}
+              <NavigationControls
+                onRotateLeft={handleRotateLeft}
+                onRotateRight={handleRotateRight}
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetView={handleResetView}
+              />
+            </div>
+
+            {/* Mobile Layout - Vertical Stack on Right */}
+            <div className="block sm:hidden">
+              <div className="fixed top-4 right-2 z-40 flex flex-col space-y-2">
+                {/* Explore Units - Top */}
+                <button
+                  onClick={handleToggleExploreDrawer}
+                  className="flex flex-col items-center justify-center w-16 h-12 text-gray-700 bg-white bg-opacity-90 
+                             backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 hover:bg-opacity-100 
+                             transition-all duration-300 touch-manipulation"
+                  title="Explore Units"
+                >
+                  <Building size={14} className="text-gray-600" />
+                  <span className="text-xs font-medium mt-0.5">Explore</span>
+                </button>
+
+                {/* Request Button - Middle */}
+                <button
+                  onClick={handleRequestClick}
+                  className="flex flex-col items-center justify-center w-16 h-12 bg-blue-600 hover:bg-blue-700 
+                            text-white rounded-lg shadow-lg transition-all duration-300 
+                            hover:shadow-xl active:scale-95 touch-manipulation"
+                  title="Request Info"
+                >
+                  <MessageCircle size={14} className="text-white" />
+                  <span className="text-xs font-medium mt-0.5">Request</span>
+                </button>
+              </div>
+
+              {/* Camera Controls - Bottom Right (Compact) */}
+              <div className="fixed bottom-4 right-2 z-40">
+                <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-1.5">
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      onClick={handleRotateLeft}
+                      className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 
+                                 border border-blue-200 rounded-md transition-all duration-200 
+                                 hover:shadow-md active:scale-95 touch-manipulation"
+                      title="Rotate Left"
+                    >
+                      <RotateCcw size={12} className="text-blue-600" />
+                    </button>
+                    
+                    <button
+                      onClick={handleZoomIn}
+                      className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 
+                                 border border-green-200 rounded-md transition-all duration-200 
+                                 hover:shadow-md active:scale-95 touch-manipulation"
+                      title="Zoom In"
+                    >
+                      <ZoomIn size={12} className="text-green-600" />
+                    </button>
+                    
+                    <button
+                      onClick={handleRotateRight}
+                      className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 
+                                 border border-blue-200 rounded-md transition-all duration-200 
+                                 hover:shadow-md active:scale-95 touch-manipulation"
+                      title="Rotate Right"
+                    >
+                      <RotateCw size={12} className="text-blue-600" />
+                    </button>
+                    
+                    <button
+                      onClick={handleZoomOut}
+                      className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 
+                                 border border-green-200 rounded-md transition-all duration-200 
+                                 hover:shadow-md active:scale-95 touch-manipulation"
+                      title="Zoom Out"
+                    >
+                      <ZoomOut size={12} className="text-green-600" />
+                    </button>
+                    
+                    <button
+                      onClick={handleResetView}
+                      className="flex items-center justify-center w-7 h-7 bg-gray-50 hover:bg-gray-100 
+                                 border border-gray-200 rounded-md transition-all duration-200 
+                                 hover:shadow-md active:scale-95 touch-manipulation col-span-1"
+                      title="Reset View"
+                    >
+                      <Home size={12} className="text-gray-600" />
+                    </button>
+                    
+                    {/* Empty space for grid alignment */}
+                    <div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
         )}
+
 
         {/* Clean Explore Units Sidebar */}
         <ExploreUnitsPanel
@@ -910,6 +1053,7 @@ function App() {
             setShowSingleUnitRequest(true);
             console.log('✅ Request popup should show now');
           }}
+          onExpandFloorplan={handleExpandFloorplan}
         />
 
         
@@ -974,12 +1118,18 @@ function App() {
         />
       )}
       
-      {/* Debug info */}
-      <div style={{position: 'fixed', top: '10px', right: '10px', background: 'rgba(0,0,0,0.8)', color: 'white', padding: '5px', fontSize: '12px', zIndex: 9999}}>
-        Request Form: {showSingleUnitRequest ? 'OPEN' : 'CLOSED'}<br/>
-        Unit: {requestUnitKey}<br/>
-        Name: {requestUnitName}
-      </div>
+      {/* Floorplan Popup */}
+      {showFloorplanPopup && floorplanPopupData && (
+        <FloorplanPopup
+          isOpen={showFloorplanPopup}
+          onClose={handleCloseFloorplanPopup}
+          floorplanUrl={floorplanPopupData.floorplanUrl}
+          unitName={floorplanPopupData.unitName}
+          unitData={floorplanPopupData.unitData}
+        />
+      )}
+      
+      {/* Debug info removed */}
       
       {/* Global Hover Preview - Rendered at App level for true global positioning */}
       {globalHoverPreview && (

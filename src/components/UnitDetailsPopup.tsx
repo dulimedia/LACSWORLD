@@ -12,10 +12,14 @@ import {
   ExternalLink,
   Share,
   Copy,
-  CheckCircle
+  CheckCircle,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
 import { type UnitRecord } from '../store/exploreState';
 import { emitEvent, getTimestamp } from '../lib/events';
+import { isTowerUnit, getTowerUnitIndividualFloorplan, getTowerUnitFloorFloorplan, getFloorplanUrl as getIntelligentFloorplanUrl } from '../services/floorplanMappingService';
+import { getFloorplanUrl as encodeFloorplanUrl } from '../services/floorplanService';
 
 interface UnitDetailsPopupProps {
   unit: UnitRecord | null;
@@ -30,6 +34,7 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
 }) => {
   const [floorPlanOpen, setFloorPlanOpen] = useState(false);
   const [shareUrlCopied, setShareUrlCopied] = useState(false);
+  const [showIndividualFloorplan, setShowIndividualFloorplan] = useState(false);
   const constraintsRef = useRef<HTMLDivElement>(null);
 
   // Don't render if not open
@@ -43,10 +48,40 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
     recipients: []
   } as UnitRecord;
 
+  // Check if this is a tower unit with individual floorplan
+  const isTower = isTowerUnit(displayUnit.unit_name || '');
+  const individualFloorplan = getTowerUnitIndividualFloorplan(displayUnit.unit_name || '');
+  const hasIndividualFloorplan = isTower && individualFloorplan;
+  
+  // Get the appropriate floorplan URL based on current view mode
+  const getFloorplanUrl = () => {
+    if (!displayUnit.unit_name) {
+      return null;
+    }
+    
+    if (isTower && showIndividualFloorplan && hasIndividualFloorplan) {
+      // Show individual unit floorplan
+      const individualFloorplan = getTowerUnitIndividualFloorplan(displayUnit.unit_name);
+      const rawUrl = individualFloorplan ? `floorplans/converted/${individualFloorplan}` : null;
+      return rawUrl ? encodeFloorplanUrl(rawUrl) : null;
+    } else {
+      // Use the intelligent mapping service (handles tower floor floorplans and regular units)
+      const rawUrl = getIntelligentFloorplanUrl(displayUnit.unit_name, displayUnit);
+      return rawUrl ? encodeFloorplanUrl(rawUrl) : null;
+    }
+  };
+
+  const currentFloorplanUrl = getFloorplanUrl();
+
   const handleClose = () => {
     onClose();
     setFloorPlanOpen(false);
     setShareUrlCopied(false);
+    setShowIndividualFloorplan(false);
+  };
+
+  const toggleFloorplanView = () => {
+    setShowIndividualFloorplan(prev => !prev);
   };
 
   const handleFloorPlanClick = () => {
@@ -205,16 +240,42 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
             {/* Floor Plan Preview */}
             <div className="px-6 pb-4">
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Floor Plan</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Floor Plan</h3>
+                  {isTower && (
+                    <div className="text-xs text-gray-600 bg-blue-50 px-2 py-1 rounded">
+                      {showIndividualFloorplan ? 'Individual Unit' : 'Full Floor'}
+                    </div>
+                  )}
+                </div>
                 <div className="relative bg-white border border-gray-100 rounded-md overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                  {displayUnit.floorplan_url || displayUnit.unit_name ? (
+                  {/* Navigation arrows for tower units */}
+                  {hasIndividualFloorplan && (
+                    <>
+                      <button
+                        onClick={toggleFloorplanView}
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 z-10 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full p-2 shadow-md transition-all duration-200"
+                        title={showIndividualFloorplan ? "Show Full Floor Plan" : "Show Individual Unit Plan"}
+                      >
+                        <ChevronLeft size={16} className="text-gray-700" />
+                      </button>
+                      <button
+                        onClick={toggleFloorplanView}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full p-2 shadow-md transition-all duration-200"
+                        title={showIndividualFloorplan ? "Show Full Floor Plan" : "Show Individual Unit Plan"}
+                      >
+                        <ChevronRight size={16} className="text-gray-700" />
+                      </button>
+                    </>
+                  )}
+                  
+                  {currentFloorplanUrl ? (
                     <img
-                      src={displayUnit.floorplan_url || `/floorplans/previews/${displayUnit.unit_name.toLowerCase()}.png`}
+                      src={currentFloorplanUrl}
                       alt={`${displayUnit.unit_name} floor plan`}
                       className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={handleFloorPlanClick}
                       onError={(e) => {
-                        // Show placeholder on error
                         e.currentTarget.style.display = 'none';
                         const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
                         if (placeholder) placeholder.style.display = 'flex';
@@ -223,7 +284,7 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                   ) : null}
                   <div 
                     className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500"
-                    style={{ display: displayUnit.floorplan_url ? 'none' : 'flex' }}
+                    style={{ display: currentFloorplanUrl ? 'none' : 'flex' }}
                   >
                     <div className="text-center">
                       <FileText size={24} className="mx-auto mb-2 text-gray-400" />
@@ -241,6 +302,13 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                   <FileText size={16} />
                   <span>View Full Floor Plan</span>
                 </button>
+                {hasIndividualFloorplan && (
+                  <div className="mt-2 text-center">
+                    <p className="text-xs text-gray-500">
+                      Use the arrows to switch between floor and individual unit plans
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -303,13 +371,31 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                              bg-white rounded-lg shadow-xl z-60 max-w-4xl max-h-[80vh] w-full mx-4"
                 >
                   <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {displayUnit.unit_name} Floor Plan
-                    </h3>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {displayUnit.unit_name} Floor Plan
+                      </h3>
+                      {isTower && (
+                        <p className="text-sm text-gray-600">
+                          {showIndividualFloorplan ? 'Individual Unit View' : 'Full Floor View'}
+                        </p>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-2">
-                      {displayUnit.floorplan_url && (
+                      {hasIndividualFloorplan && (
+                        <button
+                          onClick={toggleFloorplanView}
+                          className="flex items-center space-x-1 px-3 py-1 text-sm bg-gray-100 
+                                     hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                        >
+                          <ChevronLeft size={14} />
+                          <span>{showIndividualFloorplan ? 'Floor View' : 'Unit View'}</span>
+                          <ChevronRight size={14} />
+                        </button>
+                      )}
+                      {currentFloorplanUrl && (
                         <a
-                          href={displayUnit.floorplan_url}
+                          href={currentFloorplanUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center space-x-1 px-3 py-1 text-sm bg-blue-100 
@@ -329,13 +415,12 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                     </div>
                   </div>
                   <div className="p-6 flex items-center justify-center bg-gray-50" style={{ minHeight: '400px' }}>
-                    {displayUnit.floorplan_url || displayUnit.unit_name ? (
+                    {currentFloorplanUrl ? (
                       <img
-                        src={displayUnit.floorplan_url || `/floorplans/previews/${displayUnit.unit_name.toLowerCase()}.png`}
+                        src={currentFloorplanUrl}
                         alt={`${displayUnit.unit_name} Floor Plan`}
                         className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
                         onError={(e) => {
-                          // Show placeholder on error
                           e.currentTarget.style.display = 'none';
                           const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
                           if (placeholder) placeholder.style.display = 'flex';
@@ -344,7 +429,7 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                     ) : null}
                     <div 
                       className="flex items-center justify-center text-gray-500"
-                      style={{ display: displayUnit.floorplan_url ? 'none' : 'flex' }}
+                      style={{ display: currentFloorplanUrl ? 'none' : 'flex' }}
                     >
                       <div className="text-center">
                         <FileText size={48} className="mx-auto mb-4 text-gray-300" />

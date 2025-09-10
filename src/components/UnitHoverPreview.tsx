@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface UnitHoverPreviewProps {
@@ -14,32 +14,13 @@ export const UnitHoverPreview: React.FC<UnitHoverPreviewProps> = ({
   position,
   isVisible
 }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  // Generate placeholder floor plan URL (will be replaced with actual data)
-  const getFloorPlanPreview = (unitName: string) => {
-    // For now, use a placeholder. Will be replaced with actual Google Sheets data
-    return `/floorplans/previews/${unitName.toLowerCase()}.png`;
-  };
-
-  const floorPlanUrl = getFloorPlanPreview(unitName);
-
-  useEffect(() => {
-    if (isVisible) {
-      setImageLoaded(false);
-      setImageError(false);
-    }
-  }, [isVisible, unitName]);
 
   if (!isVisible) return null;
-  
-  console.log('🎨 UnitHoverPreview rendering with position x:', position.x, 'y:', position.y);
 
   // Calculate position to follow mouse cursor
   const calculatePosition = () => {
-    const previewWidth = 200;
-    const previewHeight = 160;
+    const previewWidth = 180;
+    const previewHeight = 80; // Much smaller without floorplan image
     const offset = 15; // Small offset from cursor
     
     let left = position.x + offset;
@@ -74,7 +55,6 @@ export const UnitHoverPreview: React.FC<UnitHoverPreviewProps> = ({
   };
   
   const { left, top } = calculatePosition();
-  console.log('🎨 UnitHoverPreview calculated final position - left:', left, 'top:', top, 'window size:', typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'unknown');
 
   return (
     <AnimatePresence>
@@ -87,58 +67,26 @@ export const UnitHoverPreview: React.FC<UnitHoverPreviewProps> = ({
         style={{
           left: `${left}px`,
           top: `${top}px`,
-          maxWidth: '200px'
+          maxWidth: '180px'
         }}
       >
-        <div className="bg-white bg-opacity-98 backdrop-blur-sm border border-gray-300 rounded-lg shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="px-3 py-2 border-b border-gray-100">
-            <div className="text-xs font-semibold text-gray-900">{unitName}</div>
+        <div className="bg-white bg-opacity-98 backdrop-blur-sm border border-gray-300 rounded-lg shadow-xl overflow-hidden">
+          {/* Unit Info - Name and Square Footage */}
+          <div className="px-3 py-2">
+            <div className="text-sm font-semibold text-gray-900 mb-1">{unitName}</div>
             {unitData?.area_sqft && (
-              <div className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600 font-medium">
                 {unitData.area_sqft.toLocaleString()} sq ft
               </div>
             )}
-          </div>
-
-          {/* Floor Plan Preview */}
-          <div className="relative bg-gray-50">
-            {!imageError ? (
-              <img
-                src={floorPlanUrl}
-                alt={`${unitName} floor plan`}
-                className={`w-full h-24 object-cover transition-opacity duration-200 ${
-                  imageLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
-                onLoad={() => setImageLoaded(true)}
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="w-full h-24 flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                  <div className="text-xs text-gray-400 mb-1">Floor Plan</div>
-                  <div className="text-xs text-gray-500">Preview Not Available</div>
-                </div>
-              </div>
-            )}
-
-            {!imageLoaded && !imageError && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                <div className="animate-spin w-4 h-4 border border-blue-600 border-t-transparent rounded-full"></div>
-              </div>
-            )}
-          </div>
-
-          {/* Status */}
-          {unitData && (
-            <div className="px-3 py-2 bg-gray-50">
-              <div className={`text-xs font-medium ${
+            {unitData?.status && (
+              <div className={`text-xs font-medium mt-1 ${
                 unitData.status === 'Available' ? 'text-green-600' : 'text-red-600'
               }`}>
-                {unitData.status || 'Status Unknown'}
+                {unitData.status}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>

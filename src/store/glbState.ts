@@ -29,6 +29,7 @@ export interface GLBState {
   
   // Hover state
   hoveredUnit: string | null;
+  hoveredFloor: { building: string; floor: string } | null;
   
   // Loading states
   isLoadingGLBs: boolean;
@@ -43,6 +44,7 @@ export interface GLBState {
   selectFloor: (building: string | null, floor: string | null) => void;
   selectUnit: (building: string | null, floor: string | null, unit: string | null) => void;
   hoverUnit: (building: string | null, floor: string | null, unit: string | null) => void;
+  hoverFloor: (building: string | null, floor: string | null) => void;
   clearSelection: () => void;
   clearUnitSelection: () => void;
   setLoadingState: (loading: boolean, loaded?: number, total?: number) => void;
@@ -92,6 +94,7 @@ export const useGLBState = create<GLBState>((set, get) => ({
   selectedFloor: null,
   selectedUnit: null,
   hoveredUnit: null,
+  hoveredFloor: null,
   isLoadingGLBs: false,
   loadedCount: 0,
   totalCount: 0,
@@ -131,7 +134,7 @@ export const useGLBState = create<GLBState>((set, get) => ({
             floor,
             unitName: unit,
             path,
-            state: 'invisible',
+            state: 'invisible', // Default state - units are always invisible
             isLoaded: false
           });
           total++;
@@ -147,6 +150,14 @@ export const useGLBState = create<GLBState>((set, get) => ({
     const node = glbNodes.get(key);
     
     if (node) {
+      // Ensure the object is hidden immediately when stored
+      object.visible = false;
+      object.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.visible = false;
+        }
+      });
+      
       const updatedNode = { ...node, object, isLoaded: true };
       const newNodes = new Map(glbNodes);
       newNodes.set(key, updatedNode);
@@ -168,6 +179,8 @@ export const useGLBState = create<GLBState>((set, get) => ({
       newNodes.set(key, updatedNode);
       
       set({ glbNodes: newNodes });
+      
+      console.log(`🔧 GLB STATE: Setting '${key}' to '${state}'`);
       
       // Apply the visual state to the Three.js object if loaded
       if (node.object) {
@@ -268,13 +281,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
 
   hoverUnit: (building: string | null, floor: string | null, unit: string | null) => {
     const { selectedUnit, selectedBuilding, selectedFloor } = get();
-    
-    // Don't change hover if we have a selection
-    if (selectedUnit || selectedBuilding || selectedFloor) {
-      set({ hoveredUnit: null });
-      return;
-    }
-    
     const { glbNodes } = get();
     
     if (building && unit) {
@@ -288,28 +294,63 @@ export const useGLBState = create<GLBState>((set, get) => ({
         key = `${building}/${floor}/${unit}`;
       }
       
+      console.log(`🎯 HOVER DEBUG: building:'${building}' floor:'${floor}' unit:'${unit}' constructed key:'${key}'`);
+      
       // Set hover state
       set({ hoveredUnit: key });
       
-      // Make the hovered unit glow
+      // Hide all units first
+      let hiddenCount = 0;
       glbNodes.forEach((node, nodeKey) => {
-        if (nodeKey === key) {
-          get().setGLBState(nodeKey, 'glowing');
-        } else if (!selectedUnit && !selectedBuilding && !selectedFloor) {
-          // Only reset others if nothing is selected
-          get().setGLBState(nodeKey, 'invisible');
-        }
+        get().setGLBState(nodeKey, 'invisible');
+        hiddenCount++;
       });
+      
+      console.log(`🎯 HOVER DEBUG: Hidden ${hiddenCount} units`);
+      
+      // Then make ONLY the hovered unit glow
+      const hoveredNode = glbNodes.get(key);
+      if (hoveredNode) {
+        get().setGLBState(key, 'glowing');
+        console.log(`🎯 HOVER DEBUG: Made unit '${key}' glow - SUCCESS`);
+      } else {
+        console.log(`🎯 HOVER DEBUG: Unit '${key}' NOT FOUND in glbNodes`);
+        console.log(`🎯 HOVER DEBUG: Available keys:`, Array.from(glbNodes.keys()).filter(k => k.includes(unit)));
+      }
     } else {
       // Clear hover
       set({ hoveredUnit: null });
       
-      // Reset all to invisible if nothing is selected
-      if (!selectedUnit && !selectedBuilding && !selectedFloor) {
+      // Restore previous selection state when hover is cleared
+      if (selectedUnit) {
+        // Restore single unit selection
+        get().selectUnit(selectedBuilding, selectedFloor, selectedUnit);
+      } else if (selectedFloor) {
+        // Restore floor selection
+        get().selectFloor(selectedBuilding, selectedFloor);
+      } else if (selectedBuilding) {
+        // Restore building selection
+        get().selectBuilding(selectedBuilding);
+      } else {
+        // No selections, hide all
         glbNodes.forEach((node, key) => {
           get().setGLBState(key, 'invisible');
         });
       }
+    }
+  },
+
+  hoverFloor: (building: string | null, floor: string | null) => {
+    console.log(`🏢 FLOOR HOVER DEBUG: building:'${building}' floor:'${floor}'`);
+    
+    if (building && floor) {
+      // Set the floor hover state - let SelectedUnitOverlay handle the rendering
+      set({ hoveredFloor: { building, floor }, hoveredUnit: null });
+      console.log(`🏢 FLOOR HOVER DEBUG: Set hoveredFloor state for ${building}/${floor}`);
+    } else {
+      // Clear floor hover
+      set({ hoveredFloor: null });
+      console.log(`🏢 FLOOR HOVER DEBUG: Cleared hoveredFloor state`);
     }
   },
 
@@ -325,7 +366,8 @@ export const useGLBState = create<GLBState>((set, get) => ({
       selectedBuilding: null,
       selectedFloor: null,
       selectedUnit: null,
-      hoveredUnit: null
+      hoveredUnit: null,
+      hoveredFloor: null
     });
   },
 
@@ -372,25 +414,33 @@ export const useGLBState = create<GLBState>((set, get) => ({
     const { glbNodes } = get();
     const result: GLBNodeInfo[] = [];
     
+    console.log(`🔍 getGLBsByFloor: Looking for building:'${building}' floor:'${floor}'`);
+    
     glbNodes.forEach(node => {
       // Special cases for buildings with simplified key structures
       if (building === "Tower Building") {
         // Tower Building - match by building only since all units are on one "floor"
         if (node.building === building) {
           result.push(node);
+          console.log(`🔍 getGLBsByFloor: Tower Building match - ${node.key}`);
         }
       } else if (building === "Stages" && floor === "") {
         // Stages with empty floor - match by building and empty floor
         if (node.building === building && node.floor === "") {
           result.push(node);
+          console.log(`🔍 getGLBsByFloor: Stages match - ${node.key}`);
         }
       } else {
         if (node.building === building && node.floor === floor) {
           result.push(node);
+          console.log(`🔍 getGLBsByFloor: Regular match - ${node.key} (node.floor:'${node.floor}' vs target:'${floor}')`);
+        } else if (node.building === building) {
+          console.log(`🔍 getGLBsByFloor: Building match but floor mismatch - ${node.key} (node.floor:'${node.floor}' vs target:'${floor}')`);
         }
       }
     });
     
+    console.log(`🔍 getGLBsByFloor: Found ${result.length} units for ${building}/${floor}`);
     return result;
   },
 

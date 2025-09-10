@@ -1,18 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Expand, X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { getFloorplanUrl, preloadImage, FALLBACK_FLOORPLAN } from '../services/floorplanService';
+import { getFloorplanUrl as getIntelligentFloorplanUrl } from '../services/floorplanMappingService';
 
 interface FloorplanViewerProps {
   floorplanUrl: string | null;
   unitName: string;
+  building?: string;
+  floor?: string;
+  unitId?: string;
   isExpanded?: boolean;
   onClose?: () => void;
+  onExpand?: (floorplanUrl: string, unitName: string, unitData?: any) => void;
+  unitData?: any;
 }
 
 export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   floorplanUrl,
   unitName,
+  building,
+  floor,
+  unitId,
   isExpanded = false,
-  onClose
+  onClose,
+  onExpand,
+  unitData
 }) => {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
@@ -20,17 +32,45 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(isExpanded);
+  const [finalImageUrl, setFinalImageUrl] = useState<string>(FALLBACK_FLOORPLAN);
 
   useEffect(() => {
     setIsFullscreen(isExpanded);
   }, [isExpanded]);
 
-  // Reset loading state when floorplanUrl changes
+  // Handle floorplan URL changes and preloading
   useEffect(() => {
-    setImageLoading(true);
-    setImageError(false);
-    setRetryCount(0);
-  }, [floorplanUrl]);
+    const loadFloorplan = async () => {
+      setImageLoading(true);
+      setImageError(false);
+      setRetryCount(0);
+      
+      // First try intelligent mapping, then fallback to original service
+      let url = getIntelligentFloorplanUrl(unitName, unitData);
+      if (!url) {
+        url = getFloorplanUrl(floorplanUrl);
+      }
+      
+      if (url && url !== FALLBACK_FLOORPLAN) {
+        try {
+          // Try to preload the image
+          await preloadImage(url);
+          setFinalImageUrl(url);
+          // Don't set loading to false here - let the onLoad handler do it
+        } catch (error) {
+          console.warn(`Failed to load floorplan: ${url}`, error);
+          setFinalImageUrl(FALLBACK_FLOORPLAN);
+          setImageError(true);
+          setImageLoading(false);
+        }
+      } else {
+        setFinalImageUrl(FALLBACK_FLOORPLAN);
+        setImageLoading(false);
+      }
+    };
+    
+    loadFloorplan();
+  }, [floorplanUrl, unitName, unitData]);
 
   const handleImageLoad = () => {
     setImageLoading(false);
@@ -39,14 +79,16 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
 
   const handleImageError = () => {
     setImageLoading(false);
-    if (retryCount < 2) {
-      // Retry up to 2 times
+    if (retryCount < 2 && finalImageUrl !== FALLBACK_FLOORPLAN) {
+      // Retry up to 2 times for non-fallback images
       setTimeout(() => {
         setRetryCount(prev => prev + 1);
         setImageLoading(true);
         setImageError(false);
       }, 1000);
     } else {
+      // Use fallback image
+      setFinalImageUrl(FALLBACK_FLOORPLAN);
       setImageError(true);
     }
   };
@@ -70,76 +112,72 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   };
 
   const handleDownload = () => {
-    if (floorplanUrl) {
+    if (finalImageUrl && finalImageUrl !== FALLBACK_FLOORPLAN) {
       const link = document.createElement('a');
-      link.href = floorplanUrl;
+      link.href = finalImageUrl;
       link.download = `${unitName}-floorplan.jpg`;
       link.click();
     }
   };
 
   const handleToggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+    if (onExpand && finalImageUrl) {
+      // Use the new popup system
+      onExpand(finalImageUrl, unitName, unitData);
+    } else {
+      // Fallback to internal fullscreen
+      setIsFullscreen(!isFullscreen);
+    }
   };
 
-  if (!floorplanUrl) {
-    console.error('🚨 FloorplanViewer: No floorplanUrl provided for', unitName);
-    return (
-      <div className="bg-gray-100 rounded-lg p-8 text-center">
-        <div className="w-full h-48 bg-white rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-sm text-gray-500">No floorplan available</p>
-            <p className="text-xs text-gray-400 mt-1">{unitName}</p>
-            <p className="text-xs text-red-400 mt-1">DEBUG: floorplanUrl is {String(floorplanUrl)}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Component now always renders with either the actual image or fallback
+  // No need for early return since we have fallback handling
 
   const viewerContent = (
     <>
       {/* Controls */}
-      <div className="absolute top-4 right-4 flex items-center space-x-2 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg p-2 z-20">
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex items-center space-x-1 sm:space-x-2 bg-white bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg p-1.5 sm:p-2 z-20">
         <button
           onClick={handleZoomOut}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-2 sm:p-2 hover:bg-gray-100 rounded-md transition-colors touch-manipulation"
           title="Zoom Out"
         >
-          <ZoomOut size={18} className="text-gray-700" />
+          <ZoomOut size={16} className="text-gray-700 sm:w-4.5 sm:h-4.5" />
         </button>
-        <span className="text-sm font-medium text-gray-700 min-w-[50px] text-center">
+        <span className="text-xs sm:text-sm font-medium text-gray-700 min-w-[40px] sm:min-w-[50px] text-center">
           {zoom}%
         </span>
         <button
           onClick={handleZoomIn}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-2 sm:p-2 hover:bg-gray-100 rounded-md transition-colors touch-manipulation"
           title="Zoom In"
         >
-          <ZoomIn size={18} className="text-gray-700" />
+          <ZoomIn size={16} className="text-gray-700 sm:w-4.5 sm:h-4.5" />
         </button>
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        <div className="w-px h-4 sm:h-6 bg-gray-300 mx-1" />
         <button
           onClick={handleRotate}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-2 sm:p-2 hover:bg-gray-100 rounded-md transition-colors touch-manipulation"
           title="Rotate"
         >
-          <RotateCw size={18} className="text-gray-700" />
+          <RotateCw size={16} className="text-gray-700 sm:w-4.5 sm:h-4.5" />
         </button>
-        <button
-          onClick={handleDownload}
-          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-          title="Download"
-        >
-          <Download size={18} className="text-gray-700" />
-        </button>
+        {finalImageUrl !== FALLBACK_FLOORPLAN && (
+          <button
+            onClick={handleDownload}
+            className="p-2 sm:p-2 hover:bg-gray-100 rounded-md transition-colors touch-manipulation hidden sm:block"
+            title="Download"
+          >
+            <Download size={16} className="text-gray-700 sm:w-4.5 sm:h-4.5" />
+          </button>
+        )}
         {!isExpanded && (
           <button
             onClick={handleToggleFullscreen}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-2 sm:p-2 hover:bg-gray-100 rounded-md transition-colors touch-manipulation"
             title="Expand"
           >
-            <Expand size={18} className="text-gray-700" />
+            <Expand size={16} className="text-gray-700 sm:w-4.5 sm:h-4.5" />
           </button>
         )}
         {isFullscreen && onClose && (
@@ -148,10 +186,10 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
               setIsFullscreen(false);
               onClose();
             }}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            className="p-2 sm:p-2 hover:bg-gray-100 rounded-md transition-colors touch-manipulation"
             title="Close"
           >
-            <X size={18} className="text-gray-700" />
+            <X size={16} className="text-gray-700 sm:w-4.5 sm:h-4.5" />
           </button>
         )}
       </div>
@@ -172,31 +210,17 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
             </div>
           )}
           
-          {imageError ? (
-            <div className="text-center p-8">
-              <p className="text-red-600 font-medium">Failed to load floorplan</p>
-              <p className="text-gray-500 text-sm mt-2">Image may not be available yet</p>
-              <p className="text-gray-400 text-xs mt-1">{floorplanUrl}</p>
-              <button
-                onClick={handleRetry}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          ) : (
-            <img
-              src={floorplanUrl ? `${floorplanUrl}?v=${Date.now()}&retry=${retryCount}` : ''}
-              alt={`${unitName} Floorplan`}
-              onLoad={handleImageLoad}
-              onError={handleImageError}
-              className={`max-w-full h-auto ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-              style={{
-                maxHeight: isFullscreen ? 'none' : '500px',
-                objectFit: 'contain'
-              }}
-            />
-          )}
+          <img
+            src={finalImageUrl}
+            alt={`${unitName} Floorplan`}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            className={`max-w-full h-auto ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+            style={{
+              maxHeight: isFullscreen ? 'none' : '500px',
+              objectFit: 'contain'
+            }}
+          />
         </div>
       </div>
 
@@ -204,7 +228,10 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
       {!isFullscreen && (
         <div className="mt-2 text-center">
           <p className="text-xs text-gray-500">
-            {unitName} Floorplan • Click expand for full view
+            {finalImageUrl === FALLBACK_FLOORPLAN 
+              ? `${unitName} • No floorplan available for this unit`
+              : `${unitName} Floorplan • Click expand for full view`
+            }
           </p>
         </div>
       )}
@@ -214,8 +241,8 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   // Fullscreen Modal
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-8">
-        <div className="bg-white rounded-xl shadow-2xl max-w-[90vw] max-h-[90vh] w-full h-full relative">
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 sm:p-8">
+        <div className="bg-white rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] sm:max-w-[90vw] sm:max-h-[90vh] w-full h-full relative">
           <div className="absolute top-4 left-4 z-20">
             <h2 className="text-xl font-semibold text-gray-900">{unitName} Floorplan</h2>
           </div>

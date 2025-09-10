@@ -39,12 +39,62 @@ function HDRIEnvironment() {
     try {
       console.log('🌅 Loading HDRI environment...');
 
-      const gradientTexture = new THREE.DataTexture(
-        new Uint8Array([135, 206, 235, 255]), // Sky blue
-        1, 1, THREE.RGBAFormat
-      );
-      gradientTexture.needsUpdate = true;
+      // Set immediate fallback background
       scene.background = new THREE.Color(0x87CEEB);
+      
+      // Add WebGL context lost/restored handlers
+      const canvas = gl.domElement;
+      canvas.addEventListener('webglcontextlost', (event) => {
+        console.warn('🚫 WebGL context lost, preventing default');
+        console.warn('🚫 Context lost reason:', event.statusMessage || 'Unknown');
+        event.preventDefault();
+        
+        // Clean up problematic materials to prevent re-occurrence
+        scene.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.material) {
+            try {
+              const isProblematic = (mat: any) => 
+                mat?.name?.toLowerCase().includes('transparents') || 
+                mat?.name?.toLowerCase().includes('sidewalk');
+              
+              if (Array.isArray(child.material)) {
+                child.material.forEach((mat, index) => {
+                  if (isProblematic(mat)) {
+                    console.warn('🧼 Replacing problematic material:', mat.name);
+                    child.material[index] = new THREE.MeshBasicMaterial({ color: 0x888888 });
+                  }
+                });
+              } else if (isProblematic(child.material)) {
+                console.warn('🧼 Replacing problematic material:', child.material.name);
+                child.material = new THREE.MeshBasicMaterial({ color: 0x888888 });
+              }
+            } catch (error) {
+              console.error('⚠️ Error cleaning material:', error);
+            }
+          }
+        });
+      });
+      
+      canvas.addEventListener('webglcontextrestored', () => {
+        console.log('✅ WebGL context restored, reloading scene');
+        // Clear any existing materials and textures
+        scene.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach(mat => mat.dispose());
+              } else {
+                child.material.dispose();
+              }
+            }
+            if (child.geometry) {
+              child.geometry.dispose();
+            }
+          }
+        });
+        // Force garbage collection and restart
+        setTimeout(() => window.location.reload(), 100);
+      });
 
       const loader = new RGBELoader();
 
@@ -73,6 +123,12 @@ function HDRIEnvironment() {
         scene.traverse((child: any) => {
           if (child.isMesh && child.material) {
             const processMaterial = (mat: THREE.Material) => {
+              // Skip invalid or problematic materials
+              if (!mat || mat.name?.toLowerCase().includes('transparents sidewalk')) {
+                console.warn('⚠️ Skipping problematic material:', mat?.name);
+                return;
+              }
+              
               if (mat instanceof THREE.MeshStandardMaterial) {
                 // Detect glass materials
                 const isLikelyGlass = 
@@ -157,12 +213,22 @@ function HDRIEnvironment() {
                   if (child.isMesh && child.material) {
                     if (Array.isArray(child.material)) {
                       child.material.forEach((mat: THREE.Material) => {
+                        // Skip problematic materials
+                        if (!mat || mat.name?.toLowerCase().includes('transparents sidewalk')) {
+                          console.warn('⚠️ Skipping problematic material in array:', mat?.name);
+                          return;
+                        }
                         if (mat instanceof THREE.MeshStandardMaterial) {
                           mat.envMapIntensity = 0.6; // reduced from 1.0 for less blown reflections
                           materialsToUpdate.push(mat);
                         }
                       });
                     } else if (child.material instanceof THREE.MeshStandardMaterial) {
+                      // Skip problematic materials
+                      if (!child.material || child.material.name?.toLowerCase().includes('transparents sidewalk')) {
+                        console.warn('⚠️ Skipping problematic single material:', child.material?.name);
+                        return;
+                      }
                       child.material.envMapIntensity = 0.6; // reduced from 1.0 for less blown reflections
                       materialsToUpdate.push(child.material);
                     }
@@ -314,7 +380,7 @@ const SingleModel: React.FC<{
         });
 
         let processedCount = 0;
-        const batchSize = 5; 
+        const batchSize = 2; 
 
         const processBatch = () => {
           const batch = meshesToProcess.slice(processedCount, processedCount + batchSize);
@@ -336,6 +402,11 @@ const SingleModel: React.FC<{
             if (child.material) {
               if (Array.isArray(child.material)) {
                 child.material.forEach((mat: THREE.Material, index: number) => {
+                  // Skip problematic materials
+                  if (!mat || mat.name?.toLowerCase().includes('transparents sidewalk')) {
+                    console.warn('⚠️ Skipping problematic material in processing:', mat?.name);
+                    return;
+                  }
                   if (mat instanceof THREE.MeshStandardMaterial) {
                     mat.envMapIntensity = 0.8; // reduced from 1.5 for less reflective surfaces
                     mat.roughness = Math.max(mat.roughness, 0.1);
@@ -349,6 +420,11 @@ const SingleModel: React.FC<{
                   }
                 });
               } else if (child.material instanceof THREE.MeshStandardMaterial) {
+                // Skip problematic materials
+                if (!child.material || child.material.name?.toLowerCase().includes('transparents sidewalk')) {
+                  console.warn('⚠️ Skipping problematic single material in processing:', child.material?.name);
+                  return;
+                }
                 child.material.envMapIntensity = 0.8; // reduced from 1.5 for less reflective surfaces
                 child.material.roughness = Math.max(child.material.roughness, 0.1);
                 child.material.metalness = Math.min(child.material.metalness, 0.8);
@@ -485,6 +561,17 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     transparent: true,
     opacity: 0.7,
     roughness: 0.3,
+    metalness: 0.1,
+  });
+
+  // Hover material - softer/less intense than selection highlight
+  const hoverMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color('#ADD8E6'), 
+    emissive: new THREE.Color('#ADD8E6'),
+    emissiveIntensity: 1,
+    transparent: true,
+    opacity: 0.5,
+    roughness: 0.4,
     metalness: 0.1,
   });
 
@@ -627,6 +714,40 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       });
     }
   }, [selectedUnit, boxLoadedModels, highlightMaterial]);
+
+  // Hover highlighting effect (separate from selection)
+  useEffect(() => {
+    // Reset all hover materials first
+    boxLoadedModels.forEach(model => {
+      model.object.traverse((child: Object3D) => {
+        if (child instanceof Mesh) {
+          // Only reset hover material if it's not the selected unit
+          if (model.name !== selectedUnit) {
+            const originalMaterial = (child as any).userData.originalMaterial;
+            if (originalMaterial && child.material === hoverMaterial) {
+              child.material = originalMaterial;
+            }
+          }
+        }
+      });
+    });
+
+    // Apply hover material if there's a hovered unit
+    if (filterHoveredUnit && filterHoveredUnit !== selectedUnit) {
+      const target = boxLoadedModels.find(m => m.name === filterHoveredUnit);
+      
+      if (target) {
+        target.object.traverse((child: Object3D) => {
+          if (child instanceof Mesh) {
+            if (!(child as any).userData.originalMaterial) {
+              (child as any).userData.originalMaterial = child.material;
+            }
+            child.material = hoverMaterial;
+          }
+        });
+      }
+    }
+  }, [filterHoveredUnit, selectedUnit, boxLoadedModels, hoverMaterial]);
 
   useEffect(() => {
     if (onBoundingSphereData && boundingSphereData) {
