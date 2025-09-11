@@ -17,6 +17,7 @@ export interface UnitRecord {
   node_name?: string;   // optional fallback
   recipients: string[]; // parsed from recipients_csv or default
   notes?: string;
+  kitchen_size?: string; // Kitchen size from CSV (Full, Compact, Kitchenette, None)
 }
 
 export interface ExploreState {

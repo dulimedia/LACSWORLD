@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
-import { EffectComposer, Vignette, DepthOfField, Bloom } from '@react-three/postprocessing';
 import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
 import { UnitWarehouse } from './components/UnitWarehouse';
 import UnitDetailPopup from './components/UnitDetailPopup';
@@ -370,12 +369,12 @@ function App() {
     console.log('🔍 Loading states:', { modelsLoading, loadingProgress, isUnitDataLoading });
   }, [modelsLoading, loadingProgress, isUnitDataLoading]);
   
-  // Fallback: hide loading screen after 30 seconds if models never report completion
+  // Fallback: hide loading screen after 15 seconds if models never report completion
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
-      console.log('⏰ Fallback timer: Hiding loading screen after 30s');
+      console.log('⏰ Fallback timer: Hiding loading screen after 15s');
       setModelsLoading(false);
-    }, 30000);
+    }, 15000);
     
     return () => clearTimeout(fallbackTimer);
   }, []);
@@ -383,7 +382,7 @@ function App() {
   // Use CSV data if available, otherwise fallback data
   const hasValidUnitData = csvUnitData && Object.keys(csvUnitData).length > 0;
   const effectiveUnitData = useMemo(() => {
-    console.log('🔥 TESTING: effectiveUnitData recreated');
+    // Performance: removed debug logging
     return hasValidUnitData ? csvUnitData : {};
   }, [hasValidUnitData, csvUnitData]);
 
@@ -403,10 +402,7 @@ function App() {
 
   // Log unit data for debugging
   useEffect(() => {
-    console.log("Raw CSV unitData:", csvUnitData);
-    console.log("Has valid unit data:", hasValidUnitData);
-    console.log("Using effective unit data:", effectiveUnitData);
-    console.log("Number of units available:", Object.keys(effectiveUnitData).length);
+    // Performance: debug logging removed
     
     if (error) {
       console.log("CSV loading error:", error);
@@ -441,7 +437,8 @@ function App() {
           area_sqft: unitData.area_sqft || undefined,
           floorplan_url: unitData.floorPlanUrl || unitData.floorplan_url,
           recipients: ['owner@lacenter.com'], // Default recipient
-          notes: unitData.amenities
+          notes: unitData.amenities,
+          kitchen_size: unitData.kitchen_size || 'None'
         };
         
         // Store with the primary key
@@ -731,12 +728,12 @@ function App() {
     setLoadingProgress(progress);
     
     if (loaded >= total) {
-      console.log('✅ All models loaded! Hiding loading screen in 500ms...');
+      console.log('✅ All models loaded! Hiding loading screen in 200ms...');
       // Wait a moment then hide loading screen
       setTimeout(() => {
         console.log('🚪 Hiding loading screen now');
         setModelsLoading(false);
-      }, 500);
+      }, 200);
     }
   }, []);
 
@@ -752,10 +749,6 @@ function App() {
                  backdropFilter: 'blur(10px)'
                }}>
             <div className="text-center text-white">
-              {/* Debug info */}
-              <div className="mb-4 text-xs opacity-50">
-                Models Loading: {modelsLoading ? 'Yes' : 'No'} | CSV Loading: {isUnitDataLoading ? 'Yes' : 'No'}
-              </div>
               
               {/* LA Center Studios Logo */}
               <div className="mb-8">
@@ -775,8 +768,6 @@ function App() {
                     style={{ width: `${loadingProgress}%` }}
                   ></div>
                 </div>
-                <p className="text-lg font-medium mb-2">Loading Warehouse Models</p>
-                <p className="text-sm opacity-75">{loadingProgress}% Complete</p>
               </div>
               
               {/* Animated dots */}
@@ -802,15 +793,16 @@ function App() {
           style={{ background: '#e0e0e0' }}
           dpr={1} // force 1x pixel ratio for performance
           gl={{
-            antialias: false, // disable for better performance
+            antialias: false,
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.151, // brightened by 10% more
+            toneMappingExposure: 1.151,
             outputColorSpace: THREE.SRGBColorSpace,
-            physicallyCorrectLights: true, // enable PBR correctness
+            physicallyCorrectLights: true,
             shadowMap: {
               enabled: true,
-              type: THREE.BasicShadowMap, // fastest shadow type
-            }
+              type: THREE.BasicShadowMap,
+            },
+            powerPreference: "high-performance"
           } as any}
         >
           {/* HDRI-Based Lighting System */}
@@ -876,7 +868,7 @@ function App() {
                 environmentIntensity={0.4}           // reduced from 0.6 to fix window reflections
                 backgroundBlurriness={0.06}
                 backgroundRotation={[0, Math.PI * 0.05, 0]}
-                resolution={256}                     // very low resolution for maximum performance
+                resolution={128}
               />
             </React.Suspense>
           </HDRIErrorBoundary>
