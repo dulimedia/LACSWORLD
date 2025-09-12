@@ -201,8 +201,42 @@ export const useExploreState = create<ExploreState>((set, get) => ({
   },
 
   getFloorList: (building: string) => {
+    console.log(`🚨 EXPLORE STATE getFloorList CALLED for building: "${building}"`);
     const { unitsByBuilding } = get();
-    return Object.keys(unitsByBuilding[building] || {}).sort();
+    const floors = Object.keys(unitsByBuilding[building] || {});
+    console.log(`🏢 FLOOR DEBUG: Building "${building}" - Raw floors:`, floors);
+    
+    // FORCE CORRECT ORDER: Ground → First → Second → Third
+    const floorOrder = ['Ground Floor', 'Gound Floor', 'First Floor', 'Second Floor', 'Third Floor'];
+    
+    const sortedFloors = floors.sort((a, b) => {
+      // Find index in our desired order (-1 if not found)
+      let aIndex = floorOrder.findIndex(orderFloor => 
+        a.toLowerCase().includes(orderFloor.toLowerCase()) || 
+        orderFloor.toLowerCase().includes(a.toLowerCase())
+      );
+      let bIndex = floorOrder.findIndex(orderFloor => 
+        b.toLowerCase().includes(orderFloor.toLowerCase()) || 
+        orderFloor.toLowerCase().includes(b.toLowerCase())
+      );
+      
+      // If not found in our order list, put at end (high index)
+      if (aIndex === -1) aIndex = 999;
+      if (bIndex === -1) bIndex = 999;
+      
+      console.log(`🔢 FORCE SORTING: "${a}" (index ${aIndex}) vs "${b}" (index ${bIndex})`);
+      
+      // Sort by index in our desired order
+      if (aIndex !== bIndex) {
+        return aIndex - bIndex;
+      }
+      
+      // If same index, sort alphabetically
+      return a.localeCompare(b);
+    });
+    
+    console.log(`🏢 FLOOR DEBUG: Building "${building}" - FINAL SORTED floors:`, sortedFloors);
+    return sortedFloors;
   }
 }));
 

@@ -193,7 +193,7 @@ function HDRIEnvironment() {
       function loadHDRI() {
         try {
           loader.load(
-            '/textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr',
+            `${import.meta.env.BASE_URL}textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr`,
             (texture) => {
               try {
                 console.log('✅ HDRI loaded successfully:', texture);

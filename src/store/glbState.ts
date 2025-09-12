@@ -60,20 +60,20 @@ export interface GLBState {
 
 // GLB file structure mapping based on the actual file system (exact match)
 const GLB_STRUCTURE = {
-  "First Street Building": {
+  "Fifth Street Building": {
+    "Gound Floor": ["F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
     "First Floor": ["F-100", "F-105", "F-110 CR", "F-115", "F-140", "F-150", "F-160", "F-170", "F-175", "F-180 ", "F-185", "F-187", "F-190", "F1 Restrooms"],
-    "Gound Floor": ["Club 76", "F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
     "Second Floor": ["F-200", "F-240", "F-250", "F-280", "F-290", "F2 Restrooms"],
     "Third Floor": ["F-300", "F-330", "F-340", "F-350", "F-360", "F-363", "F-365", "F-380", "F3 Restrooms"]
   },
   "Maryland Building": {
-    "First Floor": ["M-120", "M-130", "M-140", "M-145", "M-150", "M-160", "M-170", "M-180", "M1 Resstroom 2", "M1 Restrooms"],
-    "Ground Floor": ["ET Lab", "M-20", "M-40", "M-45", "M-50", "MG - Stage 7 ", "Studio O.M."],
+    "Ground Floor": ["ET Lab", "M-20", "M-40", "M-45", "M-50", "MG - Stage 7", "Studio O.M."],
+    "First Floor": ["M-120", "M-130", "M-140", "M-145", "M-150", "M-160", "M-170", "M-180", "M1 Restrooms"],
     "Second Floor": ["M-210", "M-220", "M-230", "M-240", "M-250", "M-260", "M-270", "M2 Restroom"],
     "Third Floor": ["M-300", "M-320", "M-340", "M-345", "M-350", "M3 Restroom"]
   },
   "Tower Building": {
-    "Main Floor": ["T- 950", "T-100", "T-1000 ", "T-110", "T-1100 ", "T-1200 ", "T-200", "T-210", "T-220", "T-230", "T-300", "T-320", "T-400 ", "T-410 ", "T-420 ", "T-430 ", "T-450 ", "T-500", "T-530", "T-550", "T-600", "T-700 ", "T-800 ", "T-900 ", "T-G10 ", "T-G20 "]
+    "Main Floor": ["T-950", "T-100", "T-1000", "T-110", "T-1100", "T-1200", "T-200", "T-210", "T-220", "T-230", "T-300", "T-320", "T-400", "T-410", "T-420", "T-430", "T-450", "T-500", "T-530", "T-550", "T-600", "T-700", "T-800", "T-900"]
   },
   "Other": {
     "Event Space": ["Event Area 1", "Flix Cafe", "Theater"],
@@ -120,11 +120,17 @@ export const useGLBState = create<GLBState>((set, get) => ({
           // Special case for Tower Building - files are directly in building folder
           let path;
           if (building === "Tower Building") {
-            path = import.meta.env.BASE_URL + `models/boxes/${building}/${unit}.glb`;
+            // For Tower Building, check if we need to add trailing space for file compatibility
+            const fileUnit = unit === "T-950" ? "T- 950" : 
+                           ["T-1000", "T-1100", "T-1200", "T-400", "T-410", "T-420", "T-430", "T-450", "T-700", "T-800", "T-900"].includes(unit) ? unit + " " : unit;
+            path = import.meta.env.BASE_URL + `models/boxes/${building}/${fileUnit}.glb`;
           } else {
             // Handle empty floor strings to avoid double slashes
             const floorPath = floor ? `/${floor}` : '';
-            path = import.meta.env.BASE_URL + `models/boxes/${building}${floorPath}/${unit}.glb`;
+            // For Fifth Street Building, check if we need trailing space for F-180
+            const fileUnit = (building === "Fifth Street Building" && unit === "F-180") ? "F-180 " :
+                           (building === "Maryland Building" && unit === "MG - Stage 7") ? "MG - Stage 7 " : unit;
+            path = import.meta.env.BASE_URL + `models/boxes/${building}${floorPath}/${fileUnit}.glb`;
           }
           
           
@@ -180,7 +186,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
       
       set({ glbNodes: newNodes });
       
-      console.log(`🔧 GLB STATE: Setting '${key}' to '${state}'`);
       
       // Apply the visual state to the Three.js object if loaded
       if (node.object) {
@@ -341,16 +346,13 @@ export const useGLBState = create<GLBState>((set, get) => ({
   },
 
   hoverFloor: (building: string | null, floor: string | null) => {
-    console.log(`🏢 FLOOR HOVER DEBUG: building:'${building}' floor:'${floor}'`);
     
     if (building && floor) {
       // Set the floor hover state - let SelectedUnitOverlay handle the rendering
       set({ hoveredFloor: { building, floor }, hoveredUnit: null });
-      console.log(`🏢 FLOOR HOVER DEBUG: Set hoveredFloor state for ${building}/${floor}`);
     } else {
       // Clear floor hover
       set({ hoveredFloor: null });
-      console.log(`🏢 FLOOR HOVER DEBUG: Cleared hoveredFloor state`);
     }
   },
 
@@ -414,7 +416,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
     const { glbNodes } = get();
     const result: GLBNodeInfo[] = [];
     
-    console.log(`🔍 getGLBsByFloor: Looking for building:'${building}' floor:'${floor}'`);
     
     glbNodes.forEach(node => {
       // Special cases for buildings with simplified key structures
@@ -422,25 +423,20 @@ export const useGLBState = create<GLBState>((set, get) => ({
         // Tower Building - match by building only since all units are on one "floor"
         if (node.building === building) {
           result.push(node);
-          console.log(`🔍 getGLBsByFloor: Tower Building match - ${node.key}`);
         }
       } else if (building === "Stages" && floor === "") {
         // Stages with empty floor - match by building and empty floor
         if (node.building === building && node.floor === "") {
           result.push(node);
-          console.log(`🔍 getGLBsByFloor: Stages match - ${node.key}`);
         }
       } else {
         if (node.building === building && node.floor === floor) {
           result.push(node);
-          console.log(`🔍 getGLBsByFloor: Regular match - ${node.key} (node.floor:'${node.floor}' vs target:'${floor}')`);
         } else if (node.building === building) {
-          console.log(`🔍 getGLBsByFloor: Building match but floor mismatch - ${node.key} (node.floor:'${node.floor}' vs target:'${floor}')`);
         }
       }
     });
     
-    console.log(`🔍 getGLBsByFloor: Found ${result.length} units for ${building}/${floor}`);
     return result;
   },
 
@@ -490,6 +486,32 @@ export const useGLBState = create<GLBState>((set, get) => ({
   },
 
   getFloorList: (building: string) => {
-    return Object.keys(GLB_STRUCTURE[building as keyof typeof GLB_STRUCTURE] || {});
+    const floors = Object.keys(GLB_STRUCTURE[building as keyof typeof GLB_STRUCTURE] || {});
+    
+    // Custom floor sorting: Ground, First, Second, Third, then alphabetical
+    return floors.sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      
+      // Define floor priorities
+      const getFloorPriority = (floorName: string) => {
+        if (floorName.includes('ground') || floorName.includes('gound')) return 0; // Handle typo
+        if (floorName.includes('first')) return 1;
+        if (floorName.includes('second')) return 2;
+        if (floorName.includes('third')) return 3;
+        return 999; // Other floors go last
+      };
+      
+      const aPriority = getFloorPriority(aLower);
+      const bPriority = getFloorPriority(bLower);
+      
+      // Sort by priority first
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // If same priority, sort alphabetically
+      return a.localeCompare(b);
+    });
   }
 }));

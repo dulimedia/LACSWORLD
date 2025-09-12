@@ -21,13 +21,24 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const cacheBuster = `?v=${Math.random()}&t=${Date.now()}`;
-      const response = await fetch(url + cacheBuster, { 
+      // Skip cache busting for Google Sheets URLs to avoid redirect issues
+      const isGoogleSheets = url.includes('docs.google.com');
+      let finalUrl = url;
+      
+      if (!isGoogleSheets) {
+        const separator = url.includes('?') ? '&' : '?';
+        const cacheBuster = `${separator}v=${Math.random()}&t=${Date.now()}`;
+        finalUrl = url + cacheBuster;
+      }
+      
+      console.log('🌐 CSV URL Debug - Original URL:', url);
+      console.log('🌐 CSV URL Debug - Is Google Sheets:', isGoogleSheets);
+      console.log('🌐 CSV URL Debug - Final URL:', finalUrl);
+      const response = await fetch(finalUrl, { 
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
+          'Pragma': 'no-cache'
         }
       });
       if (!response.ok) {
@@ -54,7 +65,6 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                   name: row.Product,
                   availability: row.Available,
                   size: row.Size,
-                  amenities: row.Amenities,
                   floorPlanUrl: floorplanUrl,
                   floorplan_url: floorplanUrl, // Ensure both naming conventions work
                   // Map additional fields for the app
@@ -65,8 +75,17 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                   area_sqft: parseInt(row.Size) || 0,
                   status: row.Available,
                   unit_type: row.Unit_Type || 'Commercial',
-                  kitchen_size: row.Kitchen_Size || 'N/A'
+                  kitchen_size: row.Kitchen_Size || 'None'
                 };
+                
+                // Debug logging for units that should have kitchens
+                if (unitName === 'M-150' || unitName === 'M-140' || unitName === 'F-100' || unitName === 'T-320') {
+                  console.log('🍳 CSV Debug for', unitName, ':', {
+                    kitchen_size_raw: row.Kitchen_Size,
+                    kitchen_size_final: unitDataEntry.kitchen_size,
+                    full_row: row
+                  });
+                }
                 
                 
                 // Store with multiple key formats for flexible matching

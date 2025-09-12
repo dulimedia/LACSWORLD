@@ -121,11 +121,7 @@ const UnitRow: React.FC<UnitRowProps> = ({
           </div>
         </div>
         <div className="text-right">
-          {unit.area_sqft && (
-            <div className="text-xs font-medium text-gray-600">
-              {unit.area_sqft.toLocaleString()} sq ft
-            </div>
-          )}
+          {/* Square footage removed per user request */}
         </div>
       </div>
     </div>
@@ -254,10 +250,12 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   onBuildingClick,
   onUnitSelect
 }) => {
+  console.log(`🚨 BuildingNode RENDER for building: "${building}", isExpanded: ${isExpanded}`);
   const { getFloorList, getUnitsByFloor, getUnitData } = useExploreState();
   const [expandedFloors, setExpandedFloors] = useState<Record<string, boolean>>({});
   
   const floors = getFloorList(building);
+  console.log(`🏗️ BuildingNode: Got floors for "${building}":`, floors);
   
   // Calculate building stats
   const { availableCount, totalCount } = useMemo(() => {
@@ -388,11 +386,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   
   // Get selected unit data for popup
   const selectedUnit = selectedUnitKey ? getUnitData(selectedUnitKey) : null;
-  console.log('Selected unit lookup:', { selectedUnitKey, selectedUnit, hasData: !!selectedUnit });
+  // Performance: debug logging removed
 
   // Sync selectedUnitDetails with the actual selected unit from explore state
   useEffect(() => {
-    console.log('🔄 Sync effect triggered:', { 
+    console.log('🔄🍳 SYNC EFFECT - UNIT SELECTION:', { 
       selectedUnit, 
       currentView, 
       selectedUnitKey,
@@ -402,9 +400,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     if (selectedUnitKey && currentView === 'details') {
       // Always try to get fresh data when viewing details
       const freshData = getUnitData(selectedUnitKey);
-      console.log('📊 Getting fresh unit data for details:', {
+      console.log('📊🍳 GETTING UNIT DATA FOR DETAILS:', {
         key: selectedUnitKey,
-        data: freshData
+        data: freshData,
+        has_kitchen_size: !!freshData?.kitchen_size,
+        kitchen_size_value: freshData?.kitchen_size
       });
       
       if (freshData) {
@@ -417,10 +417,61 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   
   // Load GLB file tree structure
   useEffect(() => {
+    // Floor sorting function
+    const sortFloors = (tree: TreeNode): TreeNode => {
+      const sortedTree = { ...tree };
+      
+      if (sortedTree.children) {
+        sortedTree.children = sortedTree.children.map((building) => {
+          if (typeof building === 'string') return building;
+          
+          const sortedBuilding = { ...building };
+          if (sortedBuilding.children) {
+            // Sort floors within each building
+            sortedBuilding.children = [...sortedBuilding.children].sort((a, b) => {
+              if (typeof a === 'string' || typeof b === 'string') return 0;
+              
+              const aName = a.name.toLowerCase();
+              const bName = b.name.toLowerCase();
+              
+              // Define floor order priority
+              const getFloorPriority = (floorName: string) => {
+                if (floorName.includes('ground') || floorName.includes('gound')) return 0;
+                if (floorName.includes('first')) return 1;
+                if (floorName.includes('second')) return 2;
+                if (floorName.includes('third')) return 3;
+                return 999;
+              };
+              
+              const aPriority = getFloorPriority(aName);
+              const bPriority = getFloorPriority(bName);
+              
+              console.log(`🏗️ SORTING FLOORS: "${a.name}" (priority ${aPriority}) vs "${b.name}" (priority ${bPriority})`);
+              
+              if (aPriority !== bPriority) {
+                return aPriority - bPriority;
+              }
+              
+              return a.name.localeCompare(b.name);
+            });
+          }
+          
+          return sortedBuilding;
+        });
+      }
+      
+      return sortedTree;
+    };
+
     // Fetch the pre-generated index in public/
     fetch(import.meta.env.BASE_URL + 'models/boxes_index.json')
       .then((res) => res.json())
-      .then((data: TreeNode) => setTree(data))
+      .then((data: TreeNode) => {
+        console.log('🌳 Original tree loaded, now sorting floors...');
+        const sortedTree = sortFloors(data);
+        console.log('🌳 Tree sorted, setting state...');
+        setTree(sortedTree);
+      })
       .catch((err) => {
         console.warn('Failed to load boxes_index.json', err);
         setTree(null);
@@ -670,7 +721,9 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               setSelectedUnitDetails(finalUnitData);
               setCurrentView('details');
               // Clear the hover state when showing details
-              handleUnitHover(null);
+              setHoveredUnit(null);
+              const { hoverUnit } = useGLBState.getState();
+              hoverUnit(null, null, null);
               console.log('🎯 Sliding to details view for unit:', normalizedUnitName);
             }
           }}
@@ -687,11 +740,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               </span>
             </div>
             <div className="flex items-center space-x-1">
-              {unitData?.area_sqft && (
-                <span className="text-gray-500 text-xs">
-                  {Math.round(unitData.area_sqft / 100)}k
-                </span>
-              )}
+              {/* Square footage display removed per user request */}
             </div>
           </div>
         </div>
@@ -981,13 +1030,24 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     <p className="text-sm font-medium text-gray-500">Kitchen</p>
                     <p className="text-lg font-semibold text-gray-900">
 {(() => {
-                        console.log('F-170 Kitchen Debug:', {
-                          unit_name: selectedUnitDetails?.unit_name,
-                          kitchen_size: selectedUnitDetails?.kitchen_size,
-                          all_keys: Object.keys(selectedUnitDetails || {}),
-                          raw_data: selectedUnitDetails
-                        });
-                        return selectedUnitDetails?.kitchen_size || 'None';
+                        const kitchenSize = selectedUnitDetails?.kitchen_size;
+                        console.log('🍳🔍 KITCHEN DEBUG FOR UNIT:', selectedUnitDetails?.unit_name);
+                        console.log('🍳 Kitchen Size Value:', kitchenSize);
+                        console.log('🍳 Raw kitchen_size field:', selectedUnitDetails?.kitchen_size);
+                        console.log('🍳 All unit data keys:', Object.keys(selectedUnitDetails || {}));
+                        console.log('🍳 Full unit data object:', selectedUnitDetails);
+                        
+                        if (!kitchenSize || kitchenSize === 'None' || kitchenSize === 'N/A') {
+                          return 'No Kitchen';
+                        } else if (kitchenSize === 'Full') {
+                          return 'Full Kitchen';
+                        } else if (kitchenSize === 'Compact') {
+                          return 'Compact Kitchen';
+                        } else if (kitchenSize === 'Kitchenette') {
+                          return 'Kitchenette';
+                        } else {
+                          return `Kitchen: ${kitchenSize}`;
+                        }
                       })()}
                     </p>
                   </div>

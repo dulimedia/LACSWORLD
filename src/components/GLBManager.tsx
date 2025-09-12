@@ -14,8 +14,14 @@ interface GLBUnitProps {
 }
 
 const GLBUnit: React.FC<GLBUnitProps> = ({ node }) => {
-  const { scene } = useGLTF(node.path);
+  const { scene, error } = useGLTF(node.path);
   const groupRef = useRef<THREE.Group>(null);
+  
+  // Handle GLB loading errors gracefully
+  if (error) {
+    console.warn(`⚠️ Failed to load GLB: ${node.key} at ${node.path}`, error);
+    return null;
+  }
   // Material references removed - units are always hidden, ghost effect handled by overlay
   const { selectUnit } = useGLBState();
   const { setSelected } = useExploreState();

@@ -2,7 +2,7 @@ COMPLETE STRUCTURE OF /public/models/boxes/
 ============================================
 Total GLB Files: 123
 
-📁 First Street Building/
+📁 Fifth Street Building/
 ├── 📁 Ground Floor/
 │   ├── Club 76.glb
 │   ├── F-10.glb
@@ -160,7 +160,7 @@ Total GLB Files: 123
 
 ============================================
 SUMMARY BY BUILDING:
-- First Street Building: 42 units
+- Fifth Street Building: 42 units
 - Maryland Building: 29 units  
 - Tower Building: 26 units
 - Stages: 12 units

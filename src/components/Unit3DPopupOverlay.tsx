@@ -33,14 +33,7 @@ export const Unit3DPopupOverlay: React.FC<Unit3DPopupOverlayProps> = ({
       return;
     }
     
-    // Get unit data - Debug available keys
-    const { unitsData } = useExploreState.getState();
-    const availableKeys = Array.from(unitsData.keys()).slice(0, 10); // First 10 keys
-    console.log('📊 Available unit keys (first 10):', availableKeys);
-    console.log('📊 Looking for selectedUnitKey:', selectedUnitKey);
-    
     const data = getUnitData(selectedUnitKey);
-    console.log('📊 Unit data retrieved:', { selectedUnitKey, data });
     setUnitData(data);
     
     // Reset image states
@@ -61,7 +54,6 @@ export const Unit3DPopupOverlay: React.FC<Unit3DPopupOverlayProps> = ({
       const node = glbNodes.get(key);
       if (node?.object) {
         unitGLB = node.object;
-        console.log('🎯 Found GLB object for key:', key, unitGLB);
         break;
       }
     }
@@ -75,23 +67,16 @@ export const Unit3DPopupOverlay: React.FC<Unit3DPopupOverlayProps> = ({
       worldPos.y += 3;
       
       setWorldPosition(worldPos);
-      console.log('🌍 Set world position:', worldPos);
     } else {
-      console.log('❌ No GLB object found for unit');
       // Default position at origin with offset
       setWorldPosition(new THREE.Vector3(0, 3, 0));
     }
   }, [show3DPopup, selectedUnitKey, selectedBuilding, selectedFloor, selectedUnit, glbNodes, getUnitData]);
   
   if (!show3DPopup || !worldPosition || !unitData) {
-    console.log('🚫 Unit3DPopupOverlay not rendering - show3DPopup:', show3DPopup);
-    console.log('🚫 Unit3DPopupOverlay not rendering - worldPosition:', worldPosition);
-    console.log('🚫 Unit3DPopupOverlay not rendering - unitData:', unitData);
-    console.log('🚫 Unit3DPopupOverlay not rendering - selectedUnitKey:', selectedUnitKey);
     return null;
   }
   
-  console.log('🎯 Unit3DPopupOverlay rendering at world position:', worldPosition);
   
   const getFloorPlanUrl = (unitName: string) => {
     if (unitData?.floorplan_url) {

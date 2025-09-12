@@ -7,7 +7,7 @@ export interface FilterSelection {
   building?: string;
   floor?: string;
   unit?: string;
-  path?: string; // Full path like "First Street Building/First Floor/F-115.glb"
+  path?: string; // Full path like "Fifth Street Building/First Floor/F-115.glb"
 }
 
 interface FilterState {

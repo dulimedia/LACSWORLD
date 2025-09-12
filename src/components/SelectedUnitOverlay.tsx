@@ -78,31 +78,23 @@ export const SelectedUnitOverlay: React.FC = () => {
       let unitsToHighlight = [];
 
       // Determine which units to highlight based on hover state (priority) or selection level
-      console.log(`🔍 SelectedUnitOverlay - hoveredFloor:`, hoveredFloor, `hoveredUnit:'${hoveredUnit}' selectedBuilding:'${selectedBuilding}' selectedFloor:'${selectedFloor}' selectedUnit:'${selectedUnit}'`);
       
       if (hoveredFloor) {
         // Floor hover takes highest priority - show all units in the hovered floor
-        console.log(`🏢 SelectedUnitOverlay showing hovered floor: ${hoveredFloor.building}/${hoveredFloor.floor}`);
         const floorUnits = getGLBsByFloor(hoveredFloor.building, hoveredFloor.floor);
         unitsToHighlight = floorUnits.filter(unit => unit.object && unit.isLoaded);
-        console.log(`✅ SelectedUnitOverlay found ${unitsToHighlight.length} units for hovered floor`);
       } else if (hoveredUnit) {
         // Single unit hover - show only the hovered unit
-        console.log(`🐭 SelectedUnitOverlay showing hovered unit: ${hoveredUnit}`);
         const hoveredUnitGLB = glbNodes.get(hoveredUnit);
         
         if (hoveredUnitGLB?.object && hoveredUnitGLB.isLoaded) {
           hoveredUnitGLB.object.visible = false;
           unitsToHighlight.push(hoveredUnitGLB);
-          console.log(`✅ SelectedUnitOverlay found hovered unit - will highlight 1 unit`);
         } else {
-          console.log(`❌ SelectedUnitOverlay failed to find hovered unit: ${hoveredUnit}`);
         }
       } else if (selectedUnit && selectedBuilding && selectedFloor !== null && selectedFloor !== undefined) {
         // Single unit selection (note: selectedFloor can be empty string "" for some buildings)
-        console.log(`🎯 SelectedUnitOverlay attempting single unit selection for ${selectedBuilding}/${selectedFloor}/${selectedUnit}`);
         const unitGLB = getGLBByUnit(selectedBuilding, selectedFloor, selectedUnit);
-        console.log(`🔍 SelectedUnitOverlay getGLBByUnit result:`, unitGLB);
         
         if (unitGLB?.object && unitGLB.isLoaded) {
           // Double-check that the original is hidden before creating overlay
@@ -110,9 +102,7 @@ export const SelectedUnitOverlay: React.FC = () => {
             unitGLB.object.visible = false;
           }
           unitsToHighlight.push(unitGLB);
-          console.log(`✅ SelectedUnitOverlay found single unit - will highlight 1 unit`);
         } else {
-          console.log(`❌ SelectedUnitOverlay failed to find unit - falling back to building selection`);
         }
       } else if (selectedFloor !== null && selectedFloor !== undefined && selectedBuilding) {
         // Floor selection - highlight all units on that floor
