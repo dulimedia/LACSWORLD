@@ -83,7 +83,6 @@ function cleanUnitName(unitName: string): string {
     .toLowerCase()
     .replace(/[\s\-_\.]+/g, '')
     .replace(/[^a-z0-9]/g, '');
-  console.log(`🧹 cleanUnitName("${unitName}") -> "${result}"`);
   return result;
 }
 
@@ -161,6 +160,11 @@ const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'studioom': 'marylandstreet.jpg',
   'club 76': 'FGFloor_LACS_page_1.png',
   'club76': 'FGFloor_LACS_page_1.png',
+  // Maryland Building Ground Floor units use the mg floorplan
+  'm20': 'mg floorplan.jpg',
+  'm40': 'mg floorplan.jpg', 
+  'm45': 'mg floorplan.jpg',
+  'm50': 'mg floorplan.jpg',
   // All Fifth Street Building Ground Floor units use the same floorplan
   'f10': 'FGFloor_LACS_page_1.png',
   'f15': 'FGFloor_LACS_page_1.png',
@@ -241,7 +245,8 @@ export function isFifthStreetGroundFloorUnit(unitName: string): boolean {
     'club76', 'fglibrary', 'fgrestroom'
   ];
   
-  return groundFloorUnits.includes(cleanName) || cleanName.includes('club76');
+  const isGroundFloor = groundFloorUnits.includes(cleanName) || cleanName.includes('club76');
+  return isGroundFloor;
 }
 
 // Check if unit is a tower unit with individual floorplan
@@ -272,26 +277,30 @@ export function getTowerUnitIndividualFloorplan(unitName: string): string | null
 
 // Find floorplan with intelligent matching
 export function findFloorplanForUnit(unitName: string, unitData?: any): string | null {
-  
   // Validate inputs
   if (!unitName && !unitData) {
-    console.warn('⚠️ No unit name or data provided for floorplan lookup');
     return null;
   }
   
   // Check Fifth Street Building ground floor units FIRST (highest priority)
   if (isFifthStreetGroundFloorUnit(unitName)) {
-    console.log(`🏢 Fifth Street ground floor unit detected: ${unitName} -> FGFloor_LACS_page_1.png`);
-    return `floorplans/converted/FGFloor_LACS_page_1.png`;
+    const floorplanPath = `floorplans/converted/FGFloor_LACS_page_1.png`;
+    return floorplanPath;
+  }
+
+  // Check special mappings SECOND (high priority - overrides CSV data)
+  const cleanName = cleanUnitName(unitName);
+  if (cleanName && SPECIAL_MAPPINGS[cleanName]) {
+    return `floorplans/converted/${SPECIAL_MAPPINGS[cleanName]}`;
   }
   
-  // Check tower unit mappings SECOND (high priority - override existing floorplan_url for tower units)
+  // Check tower unit mappings THIRD (high priority - override existing floorplan_url for tower units)
   const towerFloorplan = getTowerUnitFloorFloorplan(unitName);
   if (towerFloorplan) {
     return `floorplans/converted/${towerFloorplan}`;
   }
   
-  // Check stage/production unit mappings THIRD (high priority - use site map for all stages and production)
+  // Check stage/production unit mappings FOURTH (high priority - use site map for all stages and production)
   if (isStageOrProductionUnit(unitName)) {
     return `floorplans/converted/LACS_Site Map_M1_Color_page_1.png`;
   }
@@ -311,12 +320,6 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
     return null;
   }
 
-
-  // Check special mappings
-  const cleanName = cleanUnitName(unitName);
-  if (cleanName && SPECIAL_MAPPINGS[cleanName]) {
-    return `floorplans/converted/${SPECIAL_MAPPINGS[cleanName]}`;
-  }
 
   // Try direct matching approaches in order of confidence
   const mappings: FloorplanMapping[] = [];

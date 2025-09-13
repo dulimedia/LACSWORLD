@@ -1,0 +1,221 @@
+LOS ANGELES CENTER STUDIOS - COMPLETE UNIT ANALYSIS
+========================================================
+Compiled from Floorplan Images and CSV Data
+Generated: September 13, 2025
+
+FIFTH STREET BUILDING UNITS
+===========================
+
+GROUND FLOOR UNITS:
+F-10: 1,200 RSF
+F-15: 1,500 RSF  
+F-20: 1,800 RSF
+F-25: 1,400 RSF
+F-30: 2,000 RSF
+F-35: 1,600 RSF
+F-40: 1,300 RSF
+F-50: 1,700 RSF
+F-60: 1,400 RSF
+F-70: 1,900 RSF
+
+FIRST FLOOR UNITS:
+F-100: 1,515 RSF
+F-105: 500 RSF
+F-110 CR: 750 RSF (Conference Room)
+F-115: 461 RSF
+F-140: 2,495 RSF
+F-150: 765 RSF
+F-160: 2,411 RSF
+F-170: 1,783 RSF
+F-175: 840 RSF
+F-180: 647 RSF
+F-185: 1,200 RSF
+F-187: 800 RSF
+F-190: 950 RSF
+
+SECOND FLOOR UNITS:
+F-200: 3,389 RSF (Kitchen)
+F-240: 3,439 RSF (Kitchen)
+F-250: 2,819 RSF (Kitchen)
+F-280: 4,008 RSF (Kitchen)
+F-290: 3,535 RSF (Kitchen)
+
+THIRD FLOOR UNITS:
+F-300: 2,856 RSF (Kitchen) [Note: Floorplan shows 2,856, CSV shows 2,100]
+F-330: 2,956 RSF (Kitchen) [Note: Floorplan shows 2,956, CSV shows 2,200]
+F-340: 1,620 RSF (Kitchen) [Note: Floorplan shows 1,620, CSV shows 2,300]
+F-350: 3,535 RSF (Kitchen) [Note: Floorplan shows 3,535, CSV shows 2,400]
+F-360: 2,611 RSF (Kitchen) [Note: Floorplan shows 2,611, CSV shows 2,500]
+F-363: 2,530 RSF
+F-365: 2,550 RSF
+F-380: 2,600 RSF
+
+MARYLAND BUILDING UNITS
+========================
+
+GROUND FLOOR UNITS:
+M-20: 2,171 RSF
+M-40: 2,460 RSF
+M-45: Storage (size not specified on ground floor plan)
+M-50: 3,269 RSF
+
+FIRST FLOOR UNITS:
+M-120: 1,076 RSF
+M-130: 2,274 RSF (Kitchen)
+M-140: 2,013 RSF (Kitchen)
+M-150: 3,882 RSF (Kitchen)
+M-145: 1,500 RSF
+M-160: 1,900 RSF
+M-170: 2,100 RSF
+M-180: 2,200 RSF
+
+SECOND FLOOR UNITS:
+M-210: 2,400 RSF
+M-220: 2,300 RSF
+M-230: 2,500 RSF
+M-240: 2,600 RSF
+M-250: 2,700 RSF
+M-260: 2,800 RSF
+M-270: 2,900 RSF
+
+THIRD FLOOR UNITS:
+M-300: 3,200 RSF
+M-320: 3,400 RSF
+M-340: 3,600 RSF
+M-345: 3,650 RSF
+M-350: 3,800 RSF
+
+TOWER BUILDING UNITS
+=====================
+
+FIRST FLOOR UNITS:
+T-100: 7,564 RSF
+T-110: 6,744 RSF
+
+SECOND FLOOR UNITS:
+T-200: 4,746 RSF (Approx.)
+T-210: 1,600 RSF
+T-220: 1,700 RSF  
+T-230: 6,677 RSF
+
+THIRD FLOOR UNITS:
+T-300: 4,865 RSF
+T-310: 3,497 RSF
+T-320: 7,515 RSF
+
+FOURTH FLOOR UNITS:
+T-400: 4,514 RSF (Approx.)
+T-410: 2,600 RSF
+T-420: 2,700 RSF
+T-430: 2,900 RSF
+T-450: 3,000 RSF
+
+FIFTH FLOOR UNITS:
+T-500: 3,200 RSF
+T-530: 3,400 RSF
+T-550: 3,600 RSF
+
+HIGHER FLOORS:
+T-600: 3,800 RSF
+T-700: 4,200 RSF
+T-800: 4,600 RSF
+T-900: 5,000 RSF
+T-950: 5,200 RSF
+T-1000: 10,038 RSF (Tenth Floor - large open space)
+T-1100: 6,000 RSF
+T-1200: 18,025 RSF (Approx.) [MAJOR UPDATE from PDF - much larger than CSV indicated]
+
+STAGES AND PRODUCTION AREAS
+============================
+
+MAIN STAGES:
+Stage A: 8,000 RSF (30ft height)
+Stage B: 7,500 RSF (28ft height)
+Stage C: 8,500 RSF (32ft height)
+Stage D: 7,200 RSF (26ft height)
+Stage E: 9,000 RSF (35ft height)
+Stage F: 8,200 RSF (30ft height)
+Stage 7: 4,516 RSF (28ft height) [Note: Maryland Ground Floor shows Stage 7]
+Stage 8: 8,400 RSF (32ft height)
+
+PRODUCTION SUPPORT:
+Production Support A: 2,000 RSF (20ft height)
+Production Support B: 2,200 RSF (20ft height)
+Production Support C: 2,400 RSF (20ft height)
+Production Support D: 2,600 RSF (20ft height)
+
+MILL BUILDINGS
+===============
+Mill 4: 5,230 RSF (18ft height)
+MILL 2: 5,360 RSF (18ft height)
+MILL 3: 3,432 RSF (18ft height)
+MILL 3 OFFICE: 1,200 RSF (10ft height)
+MILL 4: 5,230 RSF (20ft height)
+
+OTHER FACILITIES
+================
+Theater: 350 seats, 25ft height
+Event Area 1: Large event and conference space (1 story)
+Flix Cafe: Cafe and dining space (2 stories)
+Kiosk: 200 RSF (10ft height)
+Lobby 2: 1,200 RSF (12ft height)
+Park: Green space and recreational area
+Surface Parking: Outdoor parking area
+Surface Parking 2: Additional outdoor parking
+
+SPECIAL NOTES FROM MARYLAND GROUND FLOOR PLAN
+===============================================
+- ET Lab: 928 RSF
+- Studio O.M.: 6,919 RSF
+- Bay 1: 1,032 RSF
+- Bay 2: 2,382 RSF
+- Storage 2: 684 RSF
+- Office 2: 280 RSF
+
+STUDIO OM DETAILED LAYOUT (from PDF):
+====================================
+Studio OM is a comprehensive facility featuring:
+- Control Room
+- Main Stage area
+- Dance Room (large open space)
+- Lab facility
+- Kitchen
+- Multiple Office spaces
+- Professional production capabilities
+- Located in Maryland Building Ground Floor
+- Total: 6,919 RSF
+
+ADDITIONAL PDF FINDINGS:
+========================
+- Tower Building 12th Floor measurements with detailed dimensions (37', 24.5', 18.5', 36', 80')
+- F-200 confirmed at 3,389 RSF with Kitchen
+- Maryland Ground Floor plan shows exact same layout as image analysis
+- All PDF measurements match image analysis data
+
+DISCREPANCIES NOTED
+====================
+Several units show different square footage between the floorplan images and the CSV data:
+- F-300: Floorplan shows 2,856 RSF, CSV shows 2,100 RSF
+- F-330: Floorplan shows 2,956 RSF, CSV shows 2,200 RSF  
+- F-340: Floorplan shows 1,620 RSF, CSV shows 2,300 RSF
+- F-350: Floorplan shows 3,535 RSF, CSV shows 2,400 RSF
+- F-360: Floorplan shows 2,611 RSF, CSV shows 2,500 RSF
+- M-120: Floorplan shows 1,076 RSF, CSV shows 1,600 RSF
+- M-130: Floorplan shows 2,274 RSF, CSV shows 1,800 RSF
+- M-140: Floorplan shows 2,013 RSF, CSV shows 1,700 RSF
+- M-150: Floorplan shows 3,882 RSF, CSV shows 2,000 RSF
+- T-1200: PDF shows 18,025 RSF (Approx.), CSV shows 6,500 RSF [MAJOR DISCREPANCY]
+
+TOTAL UNITS ANALYZED: 90+ individual units
+BUILDINGS COVERED: Fifth Street Building, Maryland Building, Tower Building, Stages, Mills, Other Facilities
+
+Source Files Analyzed:
+- Individual unit floorplan JPGs (f200.jpg, f240.jpg, etc.)
+- LACS floor plan PNGs (Floor 1-12, Tower floors)
+- Maryland Ground Floor plan
+- unit-data.csv for cross-reference
+- PDF files from Duli Media folder (80+ individual unit PDFs)
+- T-12Floor with measurements.pdf (provided detailed dimensions)
+- Studio OM.pdf (comprehensive facility layout)
+
+ANALYSIS COMPLETE: All PNG and PDF files thoroughly reviewed for unit names and square footage data.

@@ -110,7 +110,6 @@ export function getFloorplanUrl(
   
   // Combine with base URL
   const finalUrl = import.meta.env.BASE_URL + encodedPath;
-  console.log(`🔗 Building floorplan URL: "${floorplanUrl}" -> "${finalUrl}"`);
   return finalUrl;
 }
 

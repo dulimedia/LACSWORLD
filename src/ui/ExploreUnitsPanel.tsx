@@ -384,6 +384,12 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   const selectedUnit = selectedUnitKey ? getUnitData(selectedUnitKey) : null;
   // Performance: debug logging removed
 
+  // Clear any auto-selection on component mount
+  useEffect(() => {
+    // Force clear any auto-selected unit on panel mount
+    setSelected(null);
+  }, [setSelected]);
+
   // Sync selectedUnitDetails with the actual selected unit from explore state
   useEffect(() => {
     if (selectedUnitKey && currentView === 'details') {
@@ -1050,12 +1056,18 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   </div>
                   
                   {/* Floorplan Viewer */}
-                  <FloorplanViewer
-                    floorplanUrl={selectedUnitDetails?.floorplan_url || selectedUnitDetails?.floorPlanUrl || null}
-                    unitName={selectedUnitDetails?.unit_name || 'Unit'}
-                    onExpand={onExpandFloorplan}
-                    unitData={selectedUnitDetails}
-                  />
+                  {selectedUnitDetails ? (
+                    <FloorplanViewer
+                      floorplanUrl={selectedUnitDetails.floorplan_url || selectedUnitDetails.floorPlanUrl || null}
+                      unitName={selectedUnitDetails.unit_name}
+                      onExpand={onExpandFloorplan}
+                      unitData={selectedUnitDetails}
+                    />
+                  ) : (
+                    <div className="text-center text-gray-500 p-4">
+                      Select a unit to view floorplan
+                    </div>
+                  )}
                 </div>
               )}
 

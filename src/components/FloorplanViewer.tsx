@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Expand, X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { getFloorplanUrl, preloadImage, FALLBACK_FLOORPLAN } from '../services/floorplanService';
 import { getFloorplanUrl as getIntelligentFloorplanUrl } from '../services/floorplanMappingService';
@@ -33,39 +33,92 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   const [rotation, setRotation] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(isExpanded);
   const [finalImageUrl, setFinalImageUrl] = useState<string>(FALLBACK_FLOORPLAN);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsFullscreen(isExpanded);
   }, [isExpanded]);
 
-  // Handle floorplan URL changes and preloading
+  // Handle wheel events for floorplan zoom and prevent 3D scene zoom
   useEffect(() => {
-    const loadFloorplan = async () => {
-      setImageLoading(true);
-      setImageError(false);
-      setRetryCount(0);
-      
-      // First try intelligent mapping, then fallback to original service
-      let url = getIntelligentFloorplanUrl(unitName, unitData);
-      if (!url) {
-        url = getFloorplanUrl(floorplanUrl);
+    const handleWheel = (e: WheelEvent) => {
+      // Only handle if we're directly over the floorplan image area
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-floorplan-image]')) {
+        return;
       }
       
-      if (url && url !== FALLBACK_FLOORPLAN) {
-        try {
-          // Try to preload the image
-          await preloadImage(url);
-          setFinalImageUrl(url);
-          // Don't set loading to false here - let the onLoad handler do it
-        } catch (error) {
-          console.warn(`Failed to load floorplan: ${url}`, error);
-          setFinalImageUrl(FALLBACK_FLOORPLAN);
-          setImageError(true);
-          setImageLoading(false);
-        }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      
+      const delta = e.deltaY;
+      const zoomStep = 25;
+      
+      if (delta < 0) {
+        // Zoom in
+        setZoom(prev => Math.min(prev + zoomStep, 300));
+      } else {
+        // Zoom out
+        setZoom(prev => Math.max(prev - zoomStep, 50));
+      }
+    };
+
+    const container = containerRef.current;
+    if (container && isFullscreen) {
+      // Use capture phase to intercept before other listeners
+      container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+      
+      return () => {
+        container.removeEventListener('wheel', handleWheel, true);
+      };
+    }
+  }, [isFullscreen]);
+
+  // Handle floorplan URL changes and preloading
+  useEffect(() => {
+    // Don't load anything if no valid unit name provided
+    if (!unitName || unitName === 'Unit') {
+      setFinalImageUrl(FALLBACK_FLOORPLAN);
+      setImageLoading(false);
+      setImageError(true);
+      return;
+    }
+
+    // Reset all state when unit changes
+    setImageLoading(true);
+    setImageError(false);
+    setRetryCount(0);
+    setZoom(100);
+    setRotation(0);
+
+    const loadFloorplan = async () => {
+      
+      // First try intelligent mapping, then fallback to original service
+      let intelligentUrl = getIntelligentFloorplanUrl(unitName, unitData);
+      let finalUrl: string;
+      
+      if (intelligentUrl) {
+        // Use the floorplanService to construct the full URL
+        finalUrl = getFloorplanUrl(intelligentUrl);
+      } else if (floorplanUrl) {
+        // Use the floorplanService to construct the full URL
+        finalUrl = getFloorplanUrl(floorplanUrl);
+      } else {
+        finalUrl = FALLBACK_FLOORPLAN;
+        setImageLoading(false);
+        setImageError(true);
+        setFinalImageUrl(finalUrl);
+        return;
+      }
+      
+      // Only proceed if we have a valid URL
+      if (finalUrl && finalUrl !== FALLBACK_FLOORPLAN) {
+        setFinalImageUrl(finalUrl);
+        // Let the img element's onLoad/onError handlers manage loading state
       } else {
         setFinalImageUrl(FALLBACK_FLOORPLAN);
         setImageLoading(false);
+        setImageError(true);
       }
     };
     
@@ -195,32 +248,49 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
       </div>
 
       {/* Image Container */}
-      <div className={`${isFullscreen ? 'overflow-auto' : 'overflow-hidden'} relative bg-gray-50 rounded-lg`}>
+      <div 
+        className={`${isFullscreen ? 'overflow-auto' : 'overflow-hidden'} relative bg-gray-50 rounded-lg`}
+        data-floorplan-image
+      >
+        {/* Loading indicator */}
+        {imageLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-50 rounded-lg z-10">
+            <div className="animate-spin w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full" />
+          </div>
+        )}
+        
+        {/* Image */}
         <div
-          className="flex items-center justify-center min-h-[300px] p-4"
+          className={`flex items-center justify-center p-4 ${isFullscreen ? 'min-h-[300px]' : 'min-h-[200px]'}`}
           style={{
             transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
             transformOrigin: 'center',
             transition: 'transform 0.3s ease'
           }}
+          data-floorplan-image
         >
-          {imageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-spin w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full" />
-            </div>
-          )}
-          
           <img
+            key={`${unitName}-${finalImageUrl}`} // Force re-render when unit or URL changes
             src={finalImageUrl}
             alt={`${unitName} Floorplan`}
             onLoad={handleImageLoad}
             onError={handleImageError}
-            className={`max-w-full h-auto ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+            className={`max-w-full h-auto ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ${imageError ? 'hidden' : 'block'}`}
             style={{
-              maxHeight: isFullscreen ? 'none' : '500px',
-              objectFit: 'contain'
+              maxHeight: isFullscreen ? 'none' : '300px',
+              objectFit: 'contain',
+              width: 'auto',
+              height: 'auto'
             }}
           />
+          
+          {/* Error message */}
+          {imageError && !imageLoading && (
+            <div className="text-center text-gray-500 p-4">
+              <div className="text-sm">Floorplan not available</div>
+              <div className="text-xs text-gray-400 mt-1">{unitName}</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -242,7 +312,10 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 sm:p-8">
-        <div className="bg-white rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] sm:max-w-[90vw] sm:max-h-[90vh] w-full h-full relative">
+        <div 
+          ref={containerRef}
+          className="bg-white rounded-xl shadow-2xl max-w-[95vw] max-h-[95vh] sm:max-w-[90vw] sm:max-h-[90vh] w-full h-full relative"
+        >
           <div className="absolute top-4 left-4 z-20">
             <h2 className="text-xl font-semibold text-gray-900">{unitName} Floorplan</h2>
           </div>
@@ -254,7 +327,7 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
 
   // Inline Viewer
   return (
-    <div className="relative bg-white rounded-lg shadow-sm">
+    <div className="relative bg-white rounded-lg shadow-sm border">
       {viewerContent}
     </div>
   );
