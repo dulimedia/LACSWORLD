@@ -14,7 +14,6 @@ export const SingleUnitRequestForm: React.FC<SingleUnitRequestFormProps> = ({
   unitKey,
   unitName
 }) => {
-  console.log('📋 SingleUnitRequestForm rendering - isOpen:', isOpen, 'unitKey:', unitKey, 'unitName:', unitName);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -90,7 +89,6 @@ Sent from LA Center Unit Request System
       }, 2000);
 
     } catch (error) {
-      console.error('Failed to submit request:', error);
       alert('Failed to submit request. Please try again.');
     } finally {
       setIsSubmitting(false);

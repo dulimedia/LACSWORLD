@@ -17,7 +17,7 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
   onResetView
 }) => {
   return (
-    <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-2">
+    <div className="bg-white bg-opacity-55 backdrop-blur-md rounded-lg shadow-lg border border-white border-opacity-50 p-2">
       <div className="flex items-center gap-2 md:gap-2 sm:gap-1">
         <div className="text-xs text-gray-600 font-medium px-2 hidden sm:block">Camera</div>
         

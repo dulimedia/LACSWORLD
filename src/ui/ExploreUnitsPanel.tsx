@@ -81,7 +81,7 @@ const UnitRow: React.FC<UnitRowProps> = ({
   onHover,
   onSelect
 }) => {
-  const isAvailable = unit.status === 'Available';
+  const isAvailable = unit.status === true;
   
   return (
     <div
@@ -162,10 +162,11 @@ const FloorNode: React.FC<FloorNodeProps> = ({
       // Call original selection handler
       setSelected(unitKey);
       
-      // Update GLB state for 3D visualization
-      selectUnit(building, floor, unitData.unit_name);
-      
-      console.log(`Selected unit ${building}/${floor}/${unitData.unit_name} - GLB updated`);
+      // Update GLB state for 3D visualization (check if camera is not already animating)
+      const { isCameraAnimating } = useGLBState.getState();
+      if (!isCameraAnimating) {
+        selectUnit(building, floor, unitData.unit_name);
+      }
       
       // Navigate to details view if we have the handler
       if (onUnitSelect) {
@@ -179,22 +180,20 @@ const FloorNode: React.FC<FloorNodeProps> = ({
   const unitKeys = getUnitsByFloor(building, floor);
   const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
   
-  // Filter units based on availability toggle
+  // ALWAYS filter out unavailable units - they should never be shown in the UI
   const visibleUnits = useMemo(() => {
-    if (!showAvailableOnly) return units;
-    return units; // Show all units but dim unavailable ones
-  }, [units, showAvailableOnly]);
+    // Always hide unavailable units completely (never show red dots)
+    return units.filter(unit => unit.status === true);
+  }, [units]);
 
-  const availableCount = units.filter(unit => unit.status === 'Available').length;
+  const availableCount = units.filter(unit => unit.status === true).length;
   const totalCount = units.length;
   
   // Preload floorplans when floor is expanded
   useEffect(() => {
     if (isExpanded && units.length > 0) {
-      preloadFloorFloorplans(units).then(() => {
-        console.log(`✅ Preloaded ${units.length} floorplans for ${building}/${floor}`);
-      }).catch(error => {
-        console.warn(`Failed to preload some floorplans for ${building}/${floor}`, error);
+      preloadFloorFloorplans(units).catch(() => {
+        // Silently handle failed preloads
       });
     }
   }, [isExpanded, units, building, floor]);
@@ -232,7 +231,7 @@ const FloorNode: React.FC<FloorNodeProps> = ({
               unit={unit}
               isSelected={selectedUnitKey === unit.unit_key}
               isHovered={hoveredUnitKey === unit.unit_key}
-              isDimmed={showAvailableOnly && unit.status !== 'Available'}
+              isDimmed={false}
               onHover={handleUnitHover}
               onSelect={handleUnitSelect}
             />
@@ -250,12 +249,10 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   onBuildingClick,
   onUnitSelect
 }) => {
-  console.log(`🚨 BuildingNode RENDER for building: "${building}", isExpanded: ${isExpanded}`);
   const { getFloorList, getUnitsByFloor, getUnitData } = useExploreState();
   const [expandedFloors, setExpandedFloors] = useState<Record<string, boolean>>({});
   
   const floors = getFloorList(building);
-  console.log(`🏗️ BuildingNode: Got floors for "${building}":`, floors);
   
   // Calculate building stats
   const { availableCount, totalCount } = useMemo(() => {
@@ -267,7 +264,7 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
       const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
       
       total += units.length;
-      available += units.filter(unit => unit.status === 'Available').length;
+      available += units.filter(unit => unit.status === true).length;
     });
     
     return { availableCount: available, totalCount: total };
@@ -280,7 +277,6 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   const handleFloorClick = (floor: string) => {
     const { selectFloor } = useGLBState.getState();
     selectFloor(building, floor);
-    console.log(`Selected floor ${building}/${floor} - GLBs updated`);
   };
 
   return (
@@ -390,27 +386,12 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
 
   // Sync selectedUnitDetails with the actual selected unit from explore state
   useEffect(() => {
-    console.log('🔄🍳 SYNC EFFECT - UNIT SELECTION:', { 
-      selectedUnit, 
-      currentView, 
-      selectedUnitKey,
-      hasUnit: !!selectedUnit 
-    });
-    
     if (selectedUnitKey && currentView === 'details') {
       // Always try to get fresh data when viewing details
       const freshData = getUnitData(selectedUnitKey);
-      console.log('📊🍳 GETTING UNIT DATA FOR DETAILS:', {
-        key: selectedUnitKey,
-        data: freshData,
-        has_kitchen_size: !!freshData?.kitchen_size,
-        kitchen_size_value: freshData?.kitchen_size
-      });
       
       if (freshData) {
         setSelectedUnitDetails(freshData);
-      } else {
-        console.warn('⚠️ No unit data found for key:', selectedUnitKey);
       }
     }
   }, [selectedUnit, currentView, selectedUnitKey, getUnitData]);
@@ -446,7 +427,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               const aPriority = getFloorPriority(aName);
               const bPriority = getFloorPriority(bName);
               
-              console.log(`🏗️ SORTING FLOORS: "${a.name}" (priority ${aPriority}) vs "${b.name}" (priority ${bPriority})`);
               
               if (aPriority !== bPriority) {
                 return aPriority - bPriority;
@@ -467,13 +447,10 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     fetch(import.meta.env.BASE_URL + 'models/boxes_index.json')
       .then((res) => res.json())
       .then((data: TreeNode) => {
-        console.log('🌳 Original tree loaded, now sorting floors...');
         const sortedTree = sortFloors(data);
-        console.log('🌳 Tree sorted, setting state...');
         setTree(sortedTree);
       })
-      .catch((err) => {
-        console.warn('Failed to load boxes_index.json', err);
+      .catch(() => {
         setTree(null);
       });
   }, []);
@@ -556,9 +533,44 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   
   const buildings = getBuildingList();
   
-  // Toggle tree path expansion
+  // Toggle tree path expansion with smart auto-close behavior
   const toggleExpand = (path: string) => {
-    setExpandedPaths(prev => ({ ...prev, [path]: !prev[path] }));
+    setExpandedPaths(prev => {
+      const isCurrentlyExpanded = prev[path];
+      
+      if (!isCurrentlyExpanded) {
+        // Opening a folder - only close siblings at the same level
+        const newPaths = { ...prev };
+        
+        // Keep the current path as expanded
+        newPaths[path] = true;
+        
+        // Determine the level of this path (count slashes)
+        const pathLevel = (path.match(/\//g) || []).length;
+        
+        // Only close folders at the same level (siblings)
+        Object.keys(prev).forEach(existingPath => {
+          if (existingPath !== path) {
+            const existingLevel = (existingPath.match(/\//g) || []).length;
+            
+            // Only close if it's at the same level (sibling folders)
+            if (existingLevel === pathLevel) {
+              newPaths[existingPath] = false;
+            }
+          }
+        });
+        
+        return newPaths;
+      } else {
+        // Closing the folder - clear selections and toggle it off
+        
+        // Clear all selections when closing a folder
+        const { clearSelection } = useGLBState.getState();
+        clearSelection();
+        
+        return { ...prev, [path]: false };
+      }
+    });
   };
   
   // Filter buildings based on search term
@@ -578,7 +590,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   const handleBuildingClick = (building: string) => {
     const { selectBuilding } = useGLBState.getState();
     selectBuilding(building);
-    console.log(`Selected building ${building} - GLBs updated`);
   };
 
   // Render tree nodes from GLB structure
@@ -590,13 +601,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       const building = parentPath[0];
       const floor = parentPath[1];
       
-      // Debug logging for Tower Building and Stages units
-      if (building === "Tower Building") {
-        console.log(`🗼 Tower unit debug - displayName:'${displayName}' unitName:'${unitName}' building:'${building}' floor:'${floor}' parentPath:`, parentPath);
-      }
-      if (building === "Stages") {
-        console.log(`🎭 Stages unit debug - displayName:'${displayName}' unitName:'${unitName}' building:'${building}' floor:'${floor}' parentPath:`, parentPath);
-      }
       
       // Try to find unit data - first try with the normalized name, then with building/floor context
       let unitData = getUnitData(unitName);
@@ -613,20 +617,20 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           unitData = getUnitData(key);
           if (unitData) {
             actualUnitKey = key; // Remember which key worked
-            console.log(`🔑 Found unit data with alternate key: ${key}`);
             break;
           }
         }
       }
       
       const isSelected = selectedUnitKey === actualUnitKey || selectedUnitKey === unitName;
-      const isAvailable = unitData ? unitData.status === 'Available' : false;
-      const isDimmed = showAvailableOnly && !isAvailable;
+      const isAvailable = unitData ? unitData.status === true : false;
 
-      // Hide unavailable units completely if showAvailableOnly is enabled
-      if (showAvailableOnly && !isAvailable) {
+      // ALWAYS hide unavailable units completely (never show them in UI)
+      if (!isAvailable) {
         return null;
       }
+
+      const isDimmed = false; // No longer dimming since we hide completely
 
       return (
         <div
@@ -644,7 +648,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                 unitData,
                 position: { x: e.clientX, y: e.clientY }
               };
-              console.log('🐭 Setting hovered unit:', hoverData);
               setHoveredUnit(hoverData);
               
               // Dispatch global hover event for App-level rendering
@@ -652,7 +655,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                 detail: hoverData 
               }));
               
-              // Trigger scene highlighting
+              // Trigger scene highlighting (but NO camera movement)
               const { hoverUnit } = useGLBState.getState();
               const normalizedUnitName = displayName.replace(/\.glb$/i, '');
               
@@ -669,54 +672,48 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
             }
           }}
           onMouseLeave={() => {
-            console.log('🐭 Clearing hovered unit');
             setHoveredUnit(null);
             
             // Dispatch clear hover event
             window.dispatchEvent(new CustomEvent('unit-hover-clear'));
             
-            // Clear scene highlighting
+            // Clear scene highlighting (but NO camera movement)
             const { hoverUnit } = useGLBState.getState();
             hoverUnit(null, null, null);
           }}
           onClick={() => {
             if (!isDimmed) {
-              console.log('🎯 Unit clicked:', displayName, 'with key:', actualUnitKey);
               // Set the selected unit using the correct key
               const normalizedUnitName = displayName.replace(/\.glb$/i, '');
               
               // Check if this unit is already selected - if so, still open details
               if (selectedUnitKey === actualUnitKey) {
-                console.log('🔄 Unit already selected, but still opening details view');
                 // Don't return - continue to open details view
               }
               
               setSelected(actualUnitKey);
               
               // Update GLB state for 3D visualization
-              const { selectUnit } = useGLBState.getState();
+              const { selectUnit, isCameraAnimating } = useGLBState.getState();
               
-              // Special cases for buildings with undefined/empty floors
-              let effectiveFloor = floor;
-              if (building === "Tower Building" && !floor) {
-                effectiveFloor = "Main Floor";
-              } else if (building === "Stages" && !floor) {
-                effectiveFloor = ""; // Stages uses empty string for main stages
+              // Only proceed if camera is not already animating (prevent duplicate calls)
+              if (!isCameraAnimating) {
+                // Special cases for buildings with undefined/empty floors
+                let effectiveFloor = floor;
+                if (building === "Tower Building" && !floor) {
+                  effectiveFloor = "Main Floor";
+                } else if (building === "Stages" && !floor) {
+                  effectiveFloor = ""; // Stages uses empty string for main stages
+                }
+                selectUnit(building, effectiveFloor, normalizedUnitName);
               }
-              selectUnit(building, effectiveFloor, normalizedUnitName);
-              
-              console.log(`Selected unit ${building}/${floor}/${normalizedUnitName} from GLB tree - building:'${building}' floor:'${floor}' unit:'${normalizedUnitName}'`);
               
               // Slide to details view instead of showing 3D popup
-              console.log('🔍 About to set selectedUnitDetails with unitData:', unitData);
-              console.log('🔍 unitKey used for lookup:', unitName, 'normalizedUnitName:', normalizedUnitName);
               
               // Try to get fresh unit data using the normalized unit name
               const freshUnitData = getUnitData(normalizedUnitName);
-              console.log('🔍 Fresh unit data lookup:', freshUnitData);
               
               const finalUnitData = unitData || freshUnitData;
-              console.log('🔍 Final unit data to use:', finalUnitData);
               
               setSelectedUnitDetails(finalUnitData);
               setCurrentView('details');
@@ -724,7 +721,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               setHoveredUnit(null);
               const { hoverUnit } = useGLBState.getState();
               hoverUnit(null, null, null);
-              console.log('🎯 Sliding to details view for unit:', normalizedUnitName);
             }
           }}
         >
@@ -756,7 +752,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       if (isBuilding) {
         // Building card for vertical layout
         return (
-          <div key={nodePath} className="w-full bg-white bg-opacity-90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          <div key={nodePath} className="w-full bg-white bg-opacity-50 backdrop-blur-md border border-white border-opacity-50 rounded-lg shadow-sm overflow-hidden">
             <div
               className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors duration-150 border-b border-gray-100"
               onClick={() => {
@@ -765,15 +761,8 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   // Collapsing - clear all selections
                   const { clearSelection } = useGLBState.getState();
                   clearSelection();
-                  console.log(`Collapsed building ${node.name} - cleared all selections`);
                 } else {
-                  // Expanding - select the building (but check if already selected)
-                  const { selectedBuilding } = useGLBState.getState();
-                  if (selectedBuilding === node.name) {
-                    console.log('🔄 Building already selected, just expanding');
-                  } else {
-                    handleBuildingClick(node.name);
-                  }
+                  // Expanding - skip building selection for all main folders to avoid mass highlighting
                 }
                 toggleExpand(nodePath);
               }}
@@ -835,10 +824,9 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   
                   // Check if this floor is already selected - if so, just toggle expand
                   if (selectedBuilding === building && selectedFloor === node.name) {
-                    console.log('🔄 Floor already selected, just toggling expansion');
+                    // Floor already selected, just toggling expansion
                   } else {
                     selectFloor(building, node.name);
-                    console.log(`Selected floor ${building}/${node.name} from GLB tree`);
                   }
                 }
                 toggleExpand(nodePath);
@@ -887,7 +875,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   return (
     <div 
       ref={panelRef}
-      className={`fixed left-2 sm:left-6 bg-white bg-opacity-95 backdrop-blur-sm shadow-xl border border-gray-200 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-lg overflow-hidden ${
+      className={`fixed left-2 sm:left-6 bg-white bg-opacity-55 backdrop-blur-md shadow-xl border border-white border-opacity-50 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-lg overflow-hidden ${
         isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
       }`}
       style={{
@@ -909,11 +897,16 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         onMouseDown={handleMouseDown('width')}
       />
       {/* Header */}
-      <div className={`bg-white bg-opacity-90 backdrop-blur-sm border-b border-gray-200 px-6 py-3 transition-all duration-300 delay-75 ${
+      <div className={`bg-white bg-opacity-55 backdrop-blur-md border-b border-white border-opacity-50 px-6 py-3 transition-all duration-300 delay-75 ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
       }`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Explore Units</h2>
+          <div className="flex items-center space-x-3">
+            <h2 className="text-sm font-semibold text-gray-900">Explore Units</h2>
+            <span className="text-xs text-gray-500">
+              Showing available units only
+            </span>
+          </div>
           <button
             onClick={onClose}
             className="flex items-center justify-center w-5 h-5 bg-gray-100 hover:bg-gray-200 
@@ -997,17 +990,17 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   <div>
                     <p className="text-sm font-medium text-gray-500">Status</p>
                     <div className="flex items-center space-x-2 mt-1">
-                      {selectedUnitDetails?.status === 'Available' ? (
+                      {selectedUnitDetails?.status === true ? (
                         <Circle size={8} className="text-green-500 fill-current" />
                       ) : (
                         <Square size={8} className="text-red-500 fill-current" />
                       )}
                       <span className={`text-sm font-medium ${
-                        selectedUnitDetails?.status === 'Available' 
+                        selectedUnitDetails?.status === true 
                           ? 'text-green-600' 
                           : 'text-red-600'
                       }`}>
-                        {selectedUnitDetails?.status || 'Unknown'}
+                        {selectedUnitDetails?.status === true ? 'Available' : 'Unavailable'}
                       </span>
                     </div>
                   </div>
@@ -1031,11 +1024,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     <p className="text-lg font-semibold text-gray-900">
 {(() => {
                         const kitchenSize = selectedUnitDetails?.kitchen_size;
-                        console.log('🍳🔍 KITCHEN DEBUG FOR UNIT:', selectedUnitDetails?.unit_name);
-                        console.log('🍳 Kitchen Size Value:', kitchenSize);
-                        console.log('🍳 Raw kitchen_size field:', selectedUnitDetails?.kitchen_size);
-                        console.log('🍳 All unit data keys:', Object.keys(selectedUnitDetails || {}));
-                        console.log('🍳 Full unit data object:', selectedUnitDetails);
                         
                         if (!kitchenSize || kitchenSize === 'None' || kitchenSize === 'N/A') {
                           return 'No Kitchen';
@@ -1054,56 +1042,48 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                 </div>
               </div>
 
-              {/* Floorplan Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Floorplan</h3>
+              {/* Floorplan Section - Only show if unit is NOT in "Other" category */}
+              {selectedUnitDetails?.building !== 'Other' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Floorplan</h3>
+                  </div>
+                  
+                  {/* Floorplan Viewer */}
+                  <FloorplanViewer
+                    floorplanUrl={selectedUnitDetails?.floorplan_url || selectedUnitDetails?.floorPlanUrl || null}
+                    unitName={selectedUnitDetails?.unit_name || 'Unit'}
+                    onExpand={onExpandFloorplan}
+                    unitData={selectedUnitDetails}
+                  />
                 </div>
-                
-                {/* Floorplan Viewer */}
-                <FloorplanViewer
-                  floorplanUrl={selectedUnitDetails?.floorplan_url || selectedUnitDetails?.floorPlanUrl || null}
-                  unitName={selectedUnitDetails?.unit_name || 'Unit'}
-                  onExpand={onExpandFloorplan}
-                  unitData={selectedUnitDetails}
-                />
-                
-              </div>
+              )}
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                {selectedUnitDetails?.status === 'Available' && (
+                {selectedUnitDetails?.status === true && (
                   <button
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-150 flex items-center justify-center space-x-2"
                     onClick={() => {
-                      console.log('🔥 Request button clicked!', selectedUnitDetails);
-                      
                       if (onRequest) {
                         if (selectedUnitDetails) {
                           // Use the actual unit data
-                          console.log('🚀 Using selectedUnitDetails:', selectedUnitDetails.unit_key, selectedUnitDetails.unit_name);
                           onRequest(selectedUnitDetails.unit_key || selectedUnitDetails.unit_name, selectedUnitDetails.unit_name);
                         } else {
                           // Try to get unit data from the selected unit key in the global state
                           const { selectedUnitKey } = useExploreState.getState();
-                          console.log('🔍 No selectedUnitDetails, using selectedUnitKey:', selectedUnitKey);
                           
                           // Try to get unit data for the selected key
                           const unitData = getUnitData(selectedUnitKey || '');
-                          console.log('🔍 Retrieved unit data:', unitData);
                           
                           if (unitData) {
                             onRequest(unitData.unit_key, unitData.unit_name);
                           } else {
                             // Last fallback - use the selected unit key directly
                             const displayName = selectedUnitKey || 'Selected Unit';
-                            console.log('🔧 Using fallback name:', displayName);
                             onRequest(selectedUnitKey || 'unknown', displayName);
                           }
                         }
-                        console.log('✅ onRequest call completed');
-                      } else {
-                        console.error('❌ onRequest function is missing!');
                       }
                     }}
                   >
@@ -1125,13 +1105,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     // Check if Web Share API is supported
                     if (navigator.share) {
                       navigator.share(shareData)
-                        .then(() => console.log('Content shared successfully!'))
-                        .catch((error) => console.error('Error sharing content:', error));
+                        .catch(() => {});
                     } else {
                       // Fallback for browsers that don't support Web Share API
                       navigator.clipboard.writeText(shareUrl)
                         .then(() => {
-                          console.log('Link copied to clipboard');
                           // Show temporary feedback
                           const button = event.target.closest('button');
                           const originalText = button.innerHTML;
@@ -1141,7 +1119,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                           }, 2000);
                         })
                         .catch(() => {
-                          console.error('Failed to copy link');
+                          // Failed to copy link
                         });
                     }
                   }}

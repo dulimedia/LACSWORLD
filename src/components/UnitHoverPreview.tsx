@@ -81,9 +81,9 @@ export const UnitHoverPreview: React.FC<UnitHoverPreviewProps> = ({
             )}
             {unitData?.status && (
               <div className={`text-xs font-medium mt-1 ${
-                unitData.status === 'Available' ? 'text-green-600' : 'text-red-600'
+                unitData.status === true ? 'text-green-600' : 'text-red-600'
               }`}>
-                {unitData.status}
+                {unitData.status === true ? 'Available' : 'Unavailable'}
               </div>
             )}
           </div>

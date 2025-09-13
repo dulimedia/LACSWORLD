@@ -123,9 +123,9 @@ function HDRIEnvironment() {
         scene.traverse((child: any) => {
           if (child.isMesh && child.material) {
             const processMaterial = (mat: THREE.Material) => {
-              // Skip invalid or problematic materials
-              if (!mat || mat.name?.toLowerCase().includes('transparents sidewalk')) {
-                console.warn('⚠️ Skipping problematic material:', mat?.name);
+              // Skip invalid materials only
+              if (!mat) {
+                console.warn('⚠️ Skipping invalid material:', mat?.name);
                 return;
               }
               
@@ -170,7 +170,7 @@ function HDRIEnvironment() {
                   return physicalMat;
                 } else {
                   // Non-glass: keep sane reflection levels
-                  mat.envMapIntensity = 0.35; // was 0.5 globally; reduce a touch
+                  mat.envMapIntensity = 0.6; // further increased for brighter, less contrasted scene
                   mat.needsUpdate = true;
                   return mat;
                 }
@@ -213,23 +213,25 @@ function HDRIEnvironment() {
                   if (child.isMesh && child.material) {
                     if (Array.isArray(child.material)) {
                       child.material.forEach((mat: THREE.Material) => {
-                        // Skip problematic materials
-                        if (!mat || mat.name?.toLowerCase().includes('transparents sidewalk')) {
-                          console.warn('⚠️ Skipping problematic material in array:', mat?.name);
+                        // Skip invalid materials only
+                        if (!mat) {
+                          console.warn('⚠️ Skipping invalid material in array:', mat?.name);
                           return;
                         }
                         if (mat instanceof THREE.MeshStandardMaterial) {
-                          mat.envMapIntensity = 0.6; // reduced from 1.0 for less blown reflections
+                          mat.envMapIntensity = 1.0; // further increased for brighter, less contrasted scene
+                          mat.roughness = Math.max(mat.roughness, 0.3); // increase roughness to reduce sharp reflections
                           materialsToUpdate.push(mat);
                         }
                       });
                     } else if (child.material instanceof THREE.MeshStandardMaterial) {
-                      // Skip problematic materials
-                      if (!child.material || child.material.name?.toLowerCase().includes('transparents sidewalk')) {
-                        console.warn('⚠️ Skipping problematic single material:', child.material?.name);
+                      // Skip invalid materials only
+                      if (!child.material) {
+                        console.warn('⚠️ Skipping invalid single material');
                         return;
                       }
-                      child.material.envMapIntensity = 0.6; // reduced from 1.0 for less blown reflections
+                      child.material.envMapIntensity = 1.0; // further increased for brighter, less contrasted scene
+                      child.material.roughness = Math.max(child.material.roughness, 0.3); // increase roughness to reduce sharp reflections
                       materialsToUpdate.push(child.material);
                     }
                   }
@@ -270,7 +272,7 @@ function HDRIEnvironment() {
 }
 
 function BoundingSphere({ onBoundingSphereData }: { onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void }) {
-  const { scene } = useGLTF(import.meta.env.BASE_URL + 'models/bounding sphere.glb');
+  const { scene } = useGLTF(import.meta.env.BASE_URL + 'models/environment/white wall.glb');
 
   React.useEffect(() => {
     if (scene) {
@@ -402,14 +404,14 @@ const SingleModel: React.FC<{
             if (child.material) {
               if (Array.isArray(child.material)) {
                 child.material.forEach((mat: THREE.Material, index: number) => {
-                  // Skip problematic materials
-                  if (!mat || mat.name?.toLowerCase().includes('transparents sidewalk')) {
-                    console.warn('⚠️ Skipping problematic material in processing:', mat?.name);
+                  // Skip invalid materials only
+                  if (!mat) {
+                    console.warn('⚠️ Skipping invalid material in processing:', mat?.name);
                     return;
                   }
                   if (mat instanceof THREE.MeshStandardMaterial) {
-                    mat.envMapIntensity = 0.8; // reduced from 1.5 for less reflective surfaces
-                    mat.roughness = Math.max(mat.roughness, 0.1);
+                    mat.envMapIntensity = 1.1; // further increased for brighter, less contrasted scene
+                    mat.roughness = Math.max(mat.roughness, 0.4); // increase roughness to reduce sharp reflections and contrast
                     mat.metalness = Math.min(mat.metalness, 0.8);
                     mat.needsUpdate = true;
 
@@ -420,13 +422,13 @@ const SingleModel: React.FC<{
                   }
                 });
               } else if (child.material instanceof THREE.MeshStandardMaterial) {
-                // Skip problematic materials
-                if (!child.material || child.material.name?.toLowerCase().includes('transparents sidewalk')) {
-                  console.warn('⚠️ Skipping problematic single material in processing:', child.material?.name);
+                // Skip invalid materials only
+                if (!child.material) {
+                  console.warn('⚠️ Skipping invalid single material in processing');
                   return;
                 }
-                child.material.envMapIntensity = 0.8; // reduced from 1.5 for less reflective surfaces
-                child.material.roughness = Math.max(child.material.roughness, 0.1);
+                child.material.envMapIntensity = 1.1; // further increased for brighter, less contrasted scene
+                child.material.roughness = Math.max(child.material.roughness, 0.4); // increase roughness to reduce sharp reflections and contrast
                 child.material.metalness = Math.min(child.material.metalness, 0.8);
                 child.material.needsUpdate = true;
 
@@ -460,55 +462,55 @@ const SingleModel: React.FC<{
         setTimeout(() => processMaterials(), 0);
       }
 
-      const clonedScene = scene.clone();
       const modelName = getUnitName(fileName);
-      clonedScene.name = modelName;
+      scene.name = modelName;
 
       const isUnit = isUnitFile(fileName);
       const isBridge = isBridgeFile(fileName);
 
       const consolidatedFiles = new Set([
-        'accessory concrete.glb',
-        'buildings.glb',
-        'frame.glb',
-        'road.glb',
-        'sidewalk1 .glb',
-        'sidewalk2.glb',
-        'stages.glb',
-        'walls.glb',
-        'white wall.glb'
+        'environment/accessory concrete.glb',
+        'environment/hq sidewalk 2.glb',
+        'environment/roads.glb',
+        'environment/stages.glb',
+        'environment/transparent buildings.glb',
+        'environment/transparents sidewalk.glb',
+        'environment/white wall.glb',
+        'environment/FRAME 4.glb',
+        'environment/roof and walls.glb',
+        'environment/maryland street .glb'
       ]);
 
       const isBoxFile = fileName.startsWith('boxes/');
 
       if (!consolidatedFiles.has(fileName) && !fileName.startsWith('boxes/')) {
-        clonedScene.updateMatrixWorld(true);
-        const bbox = new THREE.Box3().setFromObject(clonedScene);
+        scene.updateMatrixWorld(true);
+        const bbox = new THREE.Box3().setFromObject(scene);
         const center = bbox.getCenter(new THREE.Vector3());
         const size = bbox.getSize(new THREE.Vector3());
         console.log(`📐 Model bbox center for ${modelName}: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}) size: (${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)})`);
-        clonedScene.position.set(-center.x, -center.y, -center.z);
-        clonedScene.rotation.set(0, 0, 0);
-        if ((clonedScene as any).quaternion && typeof (clonedScene as any).quaternion.identity === 'function') {
-          (clonedScene as any).quaternion.identity();
+        scene.position.set(-center.x, -center.y, -center.z);
+        scene.rotation.set(0, 0, 0);
+        if ((scene as any).quaternion && typeof (scene as any).quaternion.identity === 'function') {
+          (scene as any).quaternion.identity();
         }
-        clonedScene.updateMatrixWorld(true);
+        scene.updateMatrixWorld(true);
       } else {
         console.log(`↩️ Preserving original transform for consolidated model: ${fileName}`);
       }
 
-      clonedScene.updateMatrixWorld(true);
+      scene.updateMatrixWorld(true);
       
       const loadedModel: LoadedModel = {
         name: modelName,
-        object: clonedScene,
+        object: scene,
         isUnit,
         isBridge
       };
 
       if (fileName.toLowerCase().includes('stage c')) {
         const whiteMaterial = new THREE.MeshStandardMaterial({ color: 'white' });
-        clonedScene.traverse((child) => {
+        scene.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.material = whiteMaterial;
           }
@@ -585,15 +587,16 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
   const shadowsComputed = useRef(false);
 
   const allModels = useMemo(() => [
-    'accessory concrete.glb',
-    'buildings.glb',
-    'frame.glb',
-    'road.glb',
-    'sidewalk1 .glb',
-    'sidewalk2.glb',
-    'stages.glb',
-    'walls.glb',
-    'white wall.glb'
+    'environment/accessory concrete.glb',
+    'environment/hq sidewalk 2.glb',
+    'environment/roads.glb',
+    'environment/stages.glb',
+    'environment/transparent buildings.glb',
+    'environment/transparents sidewalk.glb',
+    'environment/white wall.glb',
+    'environment/FRAME 4.glb',
+    'environment/roof and walls.glb',
+    'environment/maryland street .glb'
   ], []);
 
   const boxFiles = useMemo(() => {
@@ -647,6 +650,44 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     }
   }, [boxFiles.length]);
 
+  // Helper function to check if unit is available in CSV data
+  const isUnitAvailable = useCallback((unitName: string): boolean => {
+    if (!unitData || Object.keys(unitData).length === 0) {
+      // If no CSV data loaded, show all units (fallback behavior)
+      return true;
+    }
+    
+    // Extract unit name from full path (e.g., "boxes/Fifth Street Building/First Floor/F-100" -> "F-100")
+    const unitNameOnly = unitName.split('/').pop() || unitName;
+    const cleanUnitName = unitNameOnly.replace(/\.glb$/i, '');
+    
+    // Try multiple key formats to find the unit
+    const possibleKeys = [
+      cleanUnitName.toLowerCase(),
+      cleanUnitName,
+      `${cleanUnitName.toLowerCase()}.glb`,
+      `${cleanUnitName}.glb`,
+      cleanUnitName.replace(/\s+/g, ''),
+      cleanUnitName.replace(/\s+/g, '').toLowerCase(),
+      unitName.toLowerCase(),
+      unitName
+    ];
+    
+    for (const key of possibleKeys) {
+      const unit = unitData[key];
+      if (unit) {
+        // Check if status is true (available) 
+        const isAvailable = unit.status === true;
+        // Uncomment for debugging: console.log(`✅ Unit ${cleanUnitName} found in CSV (key: ${key}) - Available: ${isAvailable}`);
+        return isAvailable;
+      }
+    }
+    
+    // If unit not found in CSV, hide it (assume unavailable)
+    // Uncomment for debugging: console.log(`⚠️ Unit ${cleanUnitName} not found in CSV data - hiding`);
+    return false;
+  }, [unitData]);
+
   useEffect(() => {
     const activeUnits = activeUnitsList;
 
@@ -655,13 +696,16 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     }
 
     let activatedCount = 0;
+    let hiddenByAvailabilityCount = 0;
 
     boxLoadedModels.forEach((model) => {
       const shouldBeActive = isUnitActive(model.name);
+      const isAvailable = isUnitAvailable(model.name);
 
       model.object.traverse((child: Object3D) => {
         if (child instanceof Mesh) {
-          if (shouldBeActive) {
+          // Unit must BOTH be active in filter AND available in CSV to be visible
+          if (shouldBeActive && isAvailable) {
             child.visible = true;
             activatedCount++;
 
@@ -672,6 +716,10 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
             child.material = activeMaterial;
           } else {
             child.visible = false;
+            
+            if (!isAvailable) {
+              hiddenByAvailabilityCount++;
+            }
 
             if ((child as any).userData.originalMaterial) {
               child.material = (child as any).userData.originalMaterial;
@@ -683,10 +731,14 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
 
     if (activatedCount > 0) {
       console.log(`✅ ACTIVATED ${activatedCount} meshes`);
-    } else if (activeUnits.length > 0) {
+    }
+    if (hiddenByAvailabilityCount > 0) {
+      console.log(`🚫 HIDDEN ${hiddenByAvailabilityCount} unavailable units`);
+    }
+    if (activeUnits.length > 0 && activatedCount === 0) {
       console.warn(`❌ FILTER SET but NO MESHES ACTIVATED! Available models:`, boxLoadedModels.map(m => m.name));
     }
-  }, [activeFilter, boxLoadedModels, activeUnitsList, isUnitActive, activeMaterial]);
+  }, [activeFilter, boxLoadedModels, activeUnitsList, isUnitActive, isUnitAvailable, activeMaterial]);
 
   useEffect(() => {
     boxLoadedModels.forEach(model => {
@@ -701,6 +753,13 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       return; 
     }
 
+    // Only show selection highlight if unit is available
+    const isAvailable = isUnitAvailable(selectedUnit);
+    if (!isAvailable) {
+      console.log(`🚫 Cannot highlight unavailable unit: ${selectedUnit}`);
+      return;
+    }
+
     const target = boxLoadedModels.find(m => m.name === selectedUnit);
 
     if (target) {
@@ -713,7 +772,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
         }
       });
     }
-  }, [selectedUnit, boxLoadedModels, highlightMaterial]);
+  }, [selectedUnit, boxLoadedModels, highlightMaterial, isUnitAvailable]);
 
   // Hover highlighting effect (separate from selection)
   useEffect(() => {
@@ -732,8 +791,15 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       });
     });
 
-    // Apply hover material if there's a hovered unit
+    // Apply hover material if there's a hovered unit AND it's available
     if (filterHoveredUnit && filterHoveredUnit !== selectedUnit) {
+      const isAvailable = isUnitAvailable(filterHoveredUnit);
+      
+      if (!isAvailable) {
+        console.log(`🚫 Cannot hover unavailable unit: ${filterHoveredUnit}`);
+        return;
+      }
+
       const target = boxLoadedModels.find(m => m.name === filterHoveredUnit);
       
       if (target) {
@@ -747,7 +813,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
         });
       }
     }
-  }, [filterHoveredUnit, selectedUnit, boxLoadedModels, hoverMaterial]);
+  }, [filterHoveredUnit, selectedUnit, boxLoadedModels, hoverMaterial, isUnitAvailable]);
 
   useEffect(() => {
     if (onBoundingSphereData && boundingSphereData) {

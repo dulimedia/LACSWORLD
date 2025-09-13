@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Send, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { useCsvUnitData } from '../hooks/useCsvUnitData';
 
 const UnitRequestForm = ({ isOpen, onClose }) => {
   const [selectedUnits, setSelectedUnits] = useState(new Set());
@@ -9,34 +10,60 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
   const [senderPhone, setSenderPhone] = useState('');
   const [expandedBuildings, setExpandedBuildings] = useState(new Set());
   const [isSending, setIsSending] = useState(false);
+  
+  // Get CSV data for live availability updates
+  const CSV_URL = import.meta.env.BASE_URL + 'unit-data.csv';
+  const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
 
-  const units = {
-    "Fifth Street Building": {
-      "Ground Floor": ["Club 76", "F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
-      "First Floor": ["F-100", "F-105", "F-110 CR", "F-115", "F-140", "F-150", "F-160", "F-170", "F-175", "F-180", "F-185", "F-187", "F-190", "F1 Restrooms"],
-      "Second Floor": ["F-200", "F-240", "F-250", "F-280", "F-290", "F2 Restrooms"],
-      "Third Floor": ["F-300", "F-330", "F-340", "F-350", "F-360", "F-363", "F-365", "F-380", "F3 Restrooms"]
-    },
-    "Maryland Building": {
-      "Ground Floor": ["ET Lab", "M-20", "M-40", "M-45", "M-50", "MG - Stage 7", "Studio O.M."],
-      "First Floor": ["M-120", "M-130", "M-140", "M-145", "M-150", "M-160", "M-170", "M-180", "M1 Resstroom 2", "M1 Restrooms"],
-      "Second Floor": ["M-210", "M-220", "M-230", "M-240", "M-250", "M-260", "M-270", "M2 Restroom"],
-      "Third Floor": ["M-300", "M-320", "M-340", "M-345", "M-350", "M3 Restroom"]
-    },
-    "Tower Building": {
-      "Units": ["T-100", "T-110", "T-200", "T-210", "T-220", "T-230", "T-300", "T-320", "T-400", "T-410", "T-420", "T-430", "T-450", "T-500", "T-530", "T-550", "T-600", "T-700", "T-800", "T-900", "T-950", "T-1000", "T-1100", "T-1200"]
-    },
-    "Stages": {
-      "Production": ["Production Support - A", "Production Support - B", "Production Support C", "Production Support - D"],
-      "Stages": ["Stage 7", "Stage 8", "Stage A", "Stage B", "Stage C", "Stage D", "Stage E", "Stage F"]
-    },
-    "Other": {
-      "Event Space": ["Event Area 1", "Flix Cafe", "Theater"],
-      "Mills": ["MILL 2", "MILL 3", "MILL 3 OFFICE", "MILL 4"],
-      "Parking": ["Park", "Surface Parking", "Surface Parking 2"],
-      "Shops": ["Kiosk", "Lobby - 2"]
+  // Generate units structure from CSV data, filtering only available units
+  const units = useMemo(() => {
+    if (!csvUnitData || Object.keys(csvUnitData).length === 0) {
+      return {}; // Return empty if no CSV data
     }
-  };
+    
+    const unitsStructure = {};
+    
+    // Process each unit from CSV data
+    Object.values(csvUnitData).forEach(unitData => {
+      // Only include available units (status === true or availability === true)
+      const isAvailable = unitData.status === true || unitData.availability === true;
+      if (!isAvailable) {
+        return; // Skip unavailable units
+      }
+      
+      const building = unitData.building;
+      const floor = unitData.floor || 'Units';
+      const unitName = unitData.unit_name || unitData.name;
+      
+      if (!building || !unitName) {
+        return; // Skip if missing essential data
+      }
+      
+      // Initialize building if not exists
+      if (!unitsStructure[building]) {
+        unitsStructure[building] = {};
+      }
+      
+      // Initialize floor if not exists
+      if (!unitsStructure[building][floor]) {
+        unitsStructure[building][floor] = [];
+      }
+      
+      // Add unit if not already included
+      if (!unitsStructure[building][floor].includes(unitName)) {
+        unitsStructure[building][floor].push(unitName);
+      }
+    });
+    
+    // Sort units within each floor for consistent display
+    Object.keys(unitsStructure).forEach(building => {
+      Object.keys(unitsStructure[building]).forEach(floor => {
+        unitsStructure[building][floor].sort();
+      });
+    });
+    
+    return unitsStructure;
+  }, [csvUnitData]);
 
   const toggleBuilding = (building) => {
     const newExpanded = new Set(expandedBuildings);
@@ -212,7 +239,17 @@ Sent from LA Center Unit Request System
               </div>
               
               <div className="border rounded-lg p-3 space-y-2 max-h-96 overflow-y-auto">
-                {Object.entries(units).map(([building, floors]) => (
+                {isUnitDataLoading ? (
+                  <div className="flex items-center justify-center py-8 text-gray-500">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Loading available units...
+                  </div>
+                ) : Object.keys(units).length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-gray-500">
+                    No available units found. Please check back later.
+                  </div>
+                ) : (
+                  Object.entries(units).map(([building, floors]) => (
                   <div key={building} className="border rounded-lg">
                     <button
                       type="button"
@@ -275,7 +312,8 @@ Sent from LA Center Unit Request System
                       </div>
                     )}
                   </div>
-                ))}
+                ))
+                )}
               </div>
             </div>
 

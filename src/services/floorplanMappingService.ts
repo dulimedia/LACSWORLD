@@ -11,6 +11,8 @@ interface FloorplanMapping {
 const AVAILABLE_FLOORPLANS = [
   // Site map for stages and production areas
   'LACS_Site Map_M1_Color_page_1.png',
+  // Fifth Street Building Ground Floor floorplan
+  'FGFloor_LACS_page_1.png',
   'f10.jpg', 'f100.jpg', 'f105.jpg', 'f115.jpg', 'f140.jpg', 'f150.jpg',
   'f160.jpg', 'f170.jpg', 'f175.jpg', 'f180.jpg', 'f185.jpg', 'f187.jpg',
   'f190.jpg', 'f200.jpg', 'f240.jpg', 'f250.jpg', 'f280.jpg', 'f290.jpg',
@@ -157,8 +159,21 @@ const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'studio o.m.': 'marylandstreet.jpg',
   'studio o.m': 'marylandstreet.jpg',
   'studioom': 'marylandstreet.jpg',
-  'club 76': 'fifthstreet campus locale.jpg',
-  'club76': 'fifthstreet campus locale.jpg',
+  'club 76': 'FGFloor_LACS_page_1.png',
+  'club76': 'FGFloor_LACS_page_1.png',
+  // All Fifth Street Building Ground Floor units use the same floorplan
+  'f10': 'FGFloor_LACS_page_1.png',
+  'f15': 'FGFloor_LACS_page_1.png',
+  'f20': 'FGFloor_LACS_page_1.png',
+  'f25': 'FGFloor_LACS_page_1.png',
+  'f30': 'FGFloor_LACS_page_1.png',
+  'f35': 'FGFloor_LACS_page_1.png',
+  'f40': 'FGFloor_LACS_page_1.png',
+  'f50': 'FGFloor_LACS_page_1.png',
+  'f60': 'FGFloor_LACS_page_1.png',
+  'f70': 'FGFloor_LACS_page_1.png',
+  'fglibrary': 'FGFloor_LACS_page_1.png',
+  'fgrestroom': 'FGFloor_LACS_page_1.png',
   // All stages (1-8, A-F) use the site map
   'stage 1': 'LACS_Site Map_M1_Color_page_1.png',
   'stage1': 'LACS_Site Map_M1_Color_page_1.png',
@@ -215,6 +230,20 @@ const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'productionoffice6': 'LACS_Site Map_M1_Color_page_1.png'
 };
 
+// Check if unit is a Fifth Street Building ground floor unit
+export function isFifthStreetGroundFloorUnit(unitName: string): boolean {
+  if (!unitName) return false;
+  const cleanName = cleanUnitName(unitName);
+  
+  // All F-## units that are ground floor units
+  const groundFloorUnits = [
+    'f10', 'f15', 'f20', 'f25', 'f30', 'f35', 'f40', 'f50', 'f60', 'f70',
+    'club76', 'fglibrary', 'fgrestroom'
+  ];
+  
+  return groundFloorUnits.includes(cleanName) || cleanName.includes('club76');
+}
+
 // Check if unit is a tower unit with individual floorplan
 export function isTowerUnit(unitName: string): boolean {
   if (!unitName) return false;
@@ -250,13 +279,19 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
     return null;
   }
   
-  // Check tower unit mappings FIRST (highest priority - override existing floorplan_url for tower units)
+  // Check Fifth Street Building ground floor units FIRST (highest priority)
+  if (isFifthStreetGroundFloorUnit(unitName)) {
+    console.log(`🏢 Fifth Street ground floor unit detected: ${unitName} -> FGFloor_LACS_page_1.png`);
+    return `floorplans/converted/FGFloor_LACS_page_1.png`;
+  }
+  
+  // Check tower unit mappings SECOND (high priority - override existing floorplan_url for tower units)
   const towerFloorplan = getTowerUnitFloorFloorplan(unitName);
   if (towerFloorplan) {
     return `floorplans/converted/${towerFloorplan}`;
   }
   
-  // Check stage/production unit mappings SECOND (high priority - use site map for all stages and production)
+  // Check stage/production unit mappings THIRD (high priority - use site map for all stages and production)
   if (isStageOrProductionUnit(unitName)) {
     return `floorplans/converted/LACS_Site Map_M1_Color_page_1.png`;
   }

@@ -6,7 +6,7 @@ export type UnitName = string; // e.g., 'a1', 'c10'
 export interface UnitData {
   name: string; // Unit identifier (e.g., 'a1')
   size: string; // Size from Google Sheets
-  availability: string; // Availability status
+  availability: boolean; // Availability status as boolean
   floorPlanUrl?: string; // Optional floor plan image
   // Additional fields for the app
   unit_name: string; // Display name
@@ -14,9 +14,10 @@ export interface UnitData {
   building: string; // Building name
   floor: string; // Floor number/name
   area_sqft: number; // Square footage
-  status: string; // Availability status
+  status: boolean; // Availability status as boolean
   unit_type: string; // Suite, Stage, etc.
   kitchen_size?: string; // Kitchen size
+  height?: string; // Max height for stages and other units
 }
 
 export interface LoadedModel {

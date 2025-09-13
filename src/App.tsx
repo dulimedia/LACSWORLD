@@ -20,12 +20,13 @@ import { HoverToast } from './ui/HoverToast';
 import { UnitHoverPreview } from './components/UnitHoverPreview';
 import { useUnitStore } from './stores/useUnitStore';
 import { useExploreState, buildUnitsIndex, type UnitRecord } from './store/exploreState';
+import { useGLBState } from './store/glbState';
 import { useCsvUnitData } from './hooks/useCsvUnitData';
 import { emitEvent, getTimestamp } from './lib/events';
 import * as THREE from 'three';
 
-// Google Sheets CSV URL - live data source (published to web)
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0SrigYAykdLJdnvBp524cIGR-Jcojn44R5ZmnjYhV5GPEuarIJxE9wh9_Sgqnl7r9-WuIt0uUuAui/pub?output=csv';
+// Local CSV data source
+const CSV_URL = import.meta.env.BASE_URL + 'unit-data.csv';
 
 // Simple Error Boundary for HDRI loading
 class HDRIErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -39,7 +40,6 @@ class HDRIErrorBoundary extends React.Component<{children: React.ReactNode}, {ha
   }
 
   componentDidCatch(error: any, errorInfo: any) {
-    console.log('HDRI loading error:', error, errorInfo);
   }
 
   render() {
@@ -210,8 +210,7 @@ const CameraController: React.FC<{
       enableRotate={true}
       minDistance={8}  // Increased zoom cutoff instead of collision detection
       maxDistance={25} // Back to original max distance
-      target={defaultTarget}
-      dampingFactor={0.25} // Increased damping for smoother, less sensitive movement (was 0.15)
+      dampingFactor={0.15} // Reduced for more responsive, smoother movement
       enableDamping={true}
       minPolarAngle={0} // Allow looking straight down
       maxPolarAngle={Math.PI * 0.48} // Prevent camera from going under ground (slightly less than PI/2)
@@ -227,10 +226,10 @@ const CameraController: React.FC<{
         RIGHT: THREE.MOUSE.PAN
       }}
       
-      // Better mobile sensitivity
-      rotateSpeed={window.innerWidth < 768 ? 0.5 : 0.3}
-      zoomSpeed={window.innerWidth < 768 ? 0.5 : 0.3}
-      panSpeed={window.innerWidth < 768 ? 0.4 : 0.25}
+      // Smoother, more responsive sensitivity
+      rotateSpeed={window.innerWidth < 768 ? 0.6 : 0.4}
+      zoomSpeed={window.innerWidth < 768 ? 0.6 : 0.4}
+      panSpeed={window.innerWidth < 768 ? 0.5 : 0.35}
     />
   );
 };
@@ -288,6 +287,7 @@ const DetailsSidebar: React.FC<{
 function App() {
   const { selectedUnit, hoveredUnit, setSelectedUnit, setHoveredUnit } = useUnitStore();
   const { drawerOpen, setDrawerOpen, selectedUnitKey, getUnitData, unitDetailsOpen, setUnitDetailsOpen, show3DPopup, setShow3DPopup, hoveredUnitKey } = useExploreState();
+  const { setCameraControlsRef } = useGLBState();
   
   // Global hover preview state
   const [globalHoverPreview, setGlobalHoverPreview] = useState<{
@@ -299,12 +299,10 @@ function App() {
   // Listen for hover preview updates from ExploreUnitsPanel
   useEffect(() => {
     const handleHoverUpdate = (event: CustomEvent) => {
-      console.log('🌍 App received unit-hover-update event:', event.detail);
       setGlobalHoverPreview(event.detail);
     };
     
     const handleHoverClear = () => {
-      console.log('🌍 App clearing global hover preview');
       setGlobalHoverPreview(null);
     };
     
@@ -317,13 +315,7 @@ function App() {
   }, []);
   
   // Debug logging for state changes
-  useEffect(() => {
-    console.log('📱 App: show3DPopup changed to:', show3DPopup);
-  }, [show3DPopup]);
   
-  useEffect(() => {
-    console.log('📱 App: selectedUnitKey changed to:', selectedUnitKey);
-  }, [selectedUnitKey]);
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [filterHoveredUnit, setFilterHoveredUnit] = useState<string | null>(null);
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
@@ -346,6 +338,17 @@ function App() {
   // Camera controls ref for navigation
   const orbitControlsRef = useRef<any>(null);
   
+  // Connect camera controls to GLB state for smooth centering
+  useEffect(() => {
+    setCameraControlsRef(orbitControlsRef);
+    
+    // Set initial target position when controls are ready
+    if (orbitControlsRef.current) {
+      orbitControlsRef.current.target.set(0, 0, 0);
+      orbitControlsRef.current.update();
+    }
+  }, [setCameraControlsRef]);
+  
   // Use new CSV-based data fetching
   const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
   
@@ -363,14 +366,10 @@ function App() {
   }, [modelsLoading]);
 
   // Debug logging for loading states
-  useEffect(() => {
-    console.log('🔍 Loading states:', { modelsLoading, loadingProgress, isUnitDataLoading });
-  }, [modelsLoading, loadingProgress, isUnitDataLoading]);
   
   // Fallback: hide loading screen after 15 seconds if models never report completion
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
-      console.log('⏰ Fallback timer: Hiding loading screen after 15s');
       setModelsLoading(false);
     }, 15000);
     
@@ -393,7 +392,6 @@ function App() {
       const unitKey = unitParam.toLowerCase();
       if (unitKey in effectiveUnitData) {
         setSelectedUnit(unitKey);
-        console.log(`Initial unit selected from URL: ${unitParam}`);
       }
     }
   }, [effectiveUnitData]);
@@ -403,7 +401,6 @@ function App() {
     // Performance: debug logging removed
     
     if (error) {
-      console.log("CSV loading error:", error);
     }
   }, [csvUnitData, hasValidUnitData, effectiveUnitData, error]);
 
@@ -413,7 +410,6 @@ function App() {
   // Integrate CSV data into explore state
   useEffect(() => {
     if (hasValidUnitData && csvUnitData) {
-      console.log("🔄 Integrating CSV data into explore state...");
       
       // Convert CSV data to UnitRecord format for explore state
       const unitsMap = new Map<string, UnitRecord>();
@@ -431,11 +427,12 @@ function App() {
           building: unitData.building || 'Unknown',
           floor: unitData.floor?.toString() || '',
           unit_name: unitData.unit_name || unitData.name,
-          status: unitData.status === 'Available' ? 'Available' : 'Unavailable',
+          status: unitData.status === true, // Convert to boolean as expected by UnitStatus type
           area_sqft: unitData.area_sqft || undefined,
           floorplan_url: unitData.floorPlanUrl || unitData.floorplan_url,
           recipients: ['owner@lacenter.com'], // Default recipient
-          kitchen_size: unitData.kitchen_size || 'None'
+          kitchen_size: unitData.kitchen_size || 'None',
+          unit_type: unitData.unit_type || 'Suite' // Copy unit type from CSV data
         };
         
         // Store with the primary key
@@ -447,34 +444,20 @@ function App() {
         unitsMap.set(`${unitData.name}.glb`, unitRecord);
       });
 
-      console.log("🏗️ Built units map:", unitsMap);
       
       // Build hierarchical index
       const unitsIndex = buildUnitsIndex(unitsMap);
-      console.log("🏢 Built units index:", unitsIndex);
       
       // Update explore state
       setUnitsData(unitsMap);
       setUnitsIndex(unitsIndex);
       
-      console.log("✅ CSV data integrated into explore state");
     }
   }, [hasValidUnitData, csvUnitData, setUnitsData, setUnitsIndex]);
 
   // Log selected unit when it changes
-  useEffect(() => {
-    console.log("Selected unit:", selectedUnit);
-  }, [selectedUnit]);
   
   // Log sphere data when it changes
-  useEffect(() => {
-    if (sphereData) {
-      console.log("🌍 Bounding sphere active:", {
-        center: `(${sphereData.center.x.toFixed(2)}, ${sphereData.center.y.toFixed(2)}, ${sphereData.center.z.toFixed(2)})`,
-        radius: sphereData.radius.toFixed(2)
-      });
-    }
-  }, [sphereData]);
 
   const handleUnitSelect = useCallback((unitName: string) => {
     setSelectedUnit(unitName);
@@ -721,14 +704,11 @@ function App() {
   
   const handleModelsLoadingProgress = useCallback((loaded: number, total: number) => {
     const progress = Math.round((loaded / total) * 100);
-    console.log(`📊 App received loading progress: ${loaded}/${total} (${progress}%)`);
     setLoadingProgress(progress);
     
     if (loaded >= total) {
-      console.log('✅ All models loaded! Hiding loading screen in 200ms...');
       // Wait a moment then hide loading screen
       setTimeout(() => {
-        console.log('🚪 Hiding loading screen now');
         setModelsLoading(false);
       }, 200);
     }
@@ -797,39 +777,40 @@ function App() {
             physicallyCorrectLights: true,
             shadowMap: {
               enabled: true,
-              type: THREE.BasicShadowMap,
+              type: THREE.PCFShadowMap, // Better quality but more stable than VSM during movement
+              autoUpdate: false, // Prevent constant shadow updates during camera movement
             },
             powerPreference: "high-performance"
           } as any}
         >
           {/* HDRI-Based Lighting System */}
-          {/* Very minimal ambient light - let HDRI provide most lighting */}
-          <ambientLight intensity={0.05} />
+          {/* Brighter ambient light for better overall scene brightness */}
+          <ambientLight intensity={0.08} /> {/* Increased from 0.03 for brighter scene */}
           
-          {/* Subtle white fog - pushed farther and widened */}
-          <fog attach="fog" args={['#f4f6f8', 14, 80]} />
+          {/* Lighter fog for brighter appearance */}
+          <fog attach="fog" args={['#f8f9fa', 16, 85]} />
           
           {/* Enhanced directional light with better shadow settings */}
           <directionalLight
             position={[20, 25, 15]}
-            intensity={0.7} // +0.1 to compensate for lower env
+            intensity={1.3} // Increased from 1.0 for brighter lighting
             color="#ffffff"
             castShadow
-            shadow-mapSize={[8192, 8192]} // Ultra high quality shadows
+            shadow-mapSize={[2048, 2048]} // Kept for good performance
             shadow-camera-far={150}
             shadow-camera-left={-40}
             shadow-camera-right={40}
             shadow-camera-top={40}
             shadow-camera-bottom={-40}
-            shadow-bias={-0.00001} // Reduced for better accuracy
-            shadow-normalBias={0.01}
-            shadow-radius={4} // Softer shadow edges
+            shadow-bias={-0.0001}
+            shadow-normalBias={0.02}
+            shadow-radius={3}
           />
           
-          {/* Subtle fill light to prevent harsh shadows */}
+          {/* Brighter fill light for better overall illumination */}
           <directionalLight
             position={[-10, 12, -5]}
-            intensity={0.1} // reduce fill to avoid wash
+            intensity={0.25} // Increased from 0.1 for brighter fill
             color="#ffffff"
             castShadow={false} // No shadows from fill light
           />
@@ -901,7 +882,7 @@ function App() {
               {/* Explore Units Button - Bottom Left */}
               <button
                 onClick={handleToggleExploreDrawer}
-                className="bg-white bg-opacity-90 backdrop-blur-sm hover:bg-blue-50 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-gray-200 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
               >
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span className="text-sm">Explore Units</span>
@@ -921,7 +902,7 @@ function App() {
                 {/* Request Button */}
                 <button
                   onClick={handleRequestClick}
-                  className="bg-white bg-opacity-90 backdrop-blur-sm hover:bg-blue-50 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
+                  className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
                   title="Submit a request"
                 >
                   <MessageCircle size={16} className="text-gray-600" />
@@ -969,7 +950,7 @@ function App() {
 
               {/* Camera Controls - Bottom Right (Compact) */}
               <div className="fixed bottom-4 right-2 z-40">
-                <div className="bg-white bg-opacity-90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-1.5">
+                <div className="bg-white bg-opacity-55 backdrop-blur-md rounded-lg shadow-lg border border-white border-opacity-50 p-1.5">
                   <div className="grid grid-cols-3 gap-1">
                     <button
                       onClick={handleRotateLeft}
@@ -1036,11 +1017,9 @@ function App() {
           isOpen={drawerOpen}
           onClose={handleCloseDrawer}
           onRequest={(unitKey, unitName) => {
-            console.log('🏠 App onRequest called with:', unitKey, unitName);
             setRequestUnitKey(unitKey);
             setRequestUnitName(unitName);
             setShowSingleUnitRequest(true);
-            console.log('✅ Request popup should show now');
           }}
           onExpandFloorplan={handleExpandFloorplan}
         />
@@ -1099,7 +1078,6 @@ function App() {
         <SingleUnitRequestForm
           isOpen={showSingleUnitRequest}
           onClose={() => {
-            console.log('🚪 Closing request form');
             setShowSingleUnitRequest(false);
           }}
           unitKey={requestUnitKey}

@@ -27,6 +27,13 @@ export interface GLBState {
   selectedFloor: string | null;
   selectedUnit: string | null;
   
+  // Camera controls reference for smooth centering
+  cameraControlsRef: React.MutableRefObject<any> | null;
+  
+  // Camera animation state
+  isCameraAnimating: boolean;
+  lastCameraTarget: string | null;
+  
   // Hover state
   hoveredUnit: string | null;
   hoveredFloor: { building: string; floor: string } | null;
@@ -42,12 +49,14 @@ export interface GLBState {
   setGLBState: (key: string, state: GLBVisibilityState) => void;
   selectBuilding: (building: string | null) => void;
   selectFloor: (building: string | null, floor: string | null) => void;
-  selectUnit: (building: string | null, floor: string | null, unit: string | null) => void;
+  selectUnit: (building: string | null, floor: string | null, unit: string | null, skipCameraAnimation?: boolean) => void;
   hoverUnit: (building: string | null, floor: string | null, unit: string | null) => void;
   hoverFloor: (building: string | null, floor: string | null) => void;
   clearSelection: () => void;
   clearUnitSelection: () => void;
   setLoadingState: (loading: boolean, loaded?: number, total?: number) => void;
+  setCameraControlsRef: (ref: React.MutableRefObject<any> | null) => void;
+  centerCameraOnUnit: (building: string, floor: string, unit: string) => void;
   
   // Getters
   getGLBsByBuilding: (building: string) => GLBNodeInfo[];
@@ -98,6 +107,9 @@ export const useGLBState = create<GLBState>((set, get) => ({
   isLoadingGLBs: false,
   loadedCount: 0,
   totalCount: 0,
+  cameraControlsRef: null,
+  isCameraAnimating: false,
+  lastCameraTarget: null,
 
   // Actions
   initializeGLBNodes: () => {
@@ -200,7 +212,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
   },
 
   selectBuilding: (building: string | null) => {
-    console.log(`🏢 selectBuilding called with: '${building}'`);
     const { glbNodes } = get();
     
     // Reset all GLBs to invisible first
@@ -211,7 +222,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
     if (building) {
       // Set building GLBs to glowing
       const buildingUnits = get().getGLBsByBuilding(building);
-      console.log(`🏢 Setting ${buildingUnits.length} units to glowing for building '${building}'`);
       buildingUnits.forEach(node => {
         get().setGLBState(node.key, 'glowing');
       });
@@ -246,11 +256,7 @@ export const useGLBState = create<GLBState>((set, get) => ({
     });
   },
 
-  selectUnit: (building: string | null, floor: string | null, unit: string | null) => {
-    console.log(`🎯 selectUnit called with: building:'${building}' floor:'${floor}' unit:'${unit}'`);
-    if (building === "Stages") {
-      console.log(`🎭 Stages selectUnit - will look for key based on floor:'${floor}'`);
-    }
+  selectUnit: (building: string | null, floor: string | null, unit: string | null, skipCameraAnimation = false) => {
     const { glbNodes } = get();
     
     // Reset all GLBs to invisible first
@@ -258,22 +264,17 @@ export const useGLBState = create<GLBState>((set, get) => ({
       get().setGLBState(key, 'invisible');
     });
     
-    if (building && floor && unit) {
+    if (building && unit && (floor !== null)) {
       // Set only the specific unit GLB to glowing
       const unitGLB = get().getGLBByUnit(building, floor, unit);
-      console.log(`🔍 selectUnit Debug: building:'${building}' floor:'${floor}' unit:'${unit}'`);
-      console.log(`🎯 Found unitGLB:`, unitGLB);
       
       if (unitGLB) {
         get().setGLBState(unitGLB.key, 'glowing');
-        console.log(`✅ Set unit '${unitGLB.key}' to glowing - should show ONLY this unit`);
-      } else {
-        console.log(`❌ No unitGLB found for ${building}/${floor}/${unit}`);
-        console.log(`📋 Available GLB keys:`, Array.from(glbNodes.keys()));
         
-        // Debug: Show all GLBs for this building
-        const buildingGLBs = get().getGLBsByBuilding(building);
-        console.log(`🏢 All GLBs in '${building}':`, buildingGLBs.map(g => g.key));
+        // Only animate camera on initial selection, not when restoring state
+        if (!skipCameraAnimation) {
+          get().centerCameraOnUnit(building, floor, unit);
+        }
       }
     }
     
@@ -299,37 +300,37 @@ export const useGLBState = create<GLBState>((set, get) => ({
         key = `${building}/${floor}/${unit}`;
       }
       
-      console.log(`🎯 HOVER DEBUG: building:'${building}' floor:'${floor}' unit:'${unit}' constructed key:'${key}'`);
-      
       // Set hover state
       set({ hoveredUnit: key });
       
       // Hide all units first
-      let hiddenCount = 0;
       glbNodes.forEach((node, nodeKey) => {
         get().setGLBState(nodeKey, 'invisible');
-        hiddenCount++;
       });
-      
-      console.log(`🎯 HOVER DEBUG: Hidden ${hiddenCount} units`);
       
       // Then make ONLY the hovered unit glow
       const hoveredNode = glbNodes.get(key);
       if (hoveredNode) {
         get().setGLBState(key, 'glowing');
-        console.log(`🎯 HOVER DEBUG: Made unit '${key}' glow - SUCCESS`);
-      } else {
-        console.log(`🎯 HOVER DEBUG: Unit '${key}' NOT FOUND in glbNodes`);
-        console.log(`🎯 HOVER DEBUG: Available keys:`, Array.from(glbNodes.keys()).filter(k => k.includes(unit)));
       }
     } else {
       // Clear hover
       set({ hoveredUnit: null });
       
       // Restore previous selection state when hover is cleared
+      // IMPORTANT: Don't call selectUnit as it might trigger camera movement
+      // Just restore the visual highlighting state directly
       if (selectedUnit) {
-        // Restore single unit selection
-        get().selectUnit(selectedBuilding, selectedFloor, selectedUnit);
+        // Hide all units first
+        glbNodes.forEach((node, nodeKey) => {
+          get().setGLBState(nodeKey, 'invisible');
+        });
+        
+        // Then show only the selected unit (no camera movement)
+        const unitGLB = get().getGLBByUnit(selectedBuilding, selectedFloor, selectedUnit);
+        if (unitGLB) {
+          get().setGLBState(unitGLB.key, 'glowing');
+        }
       } else if (selectedFloor) {
         // Restore floor selection
         get().selectFloor(selectedBuilding, selectedFloor);
@@ -416,7 +417,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
     const { glbNodes } = get();
     const result: GLBNodeInfo[] = [];
     
-    
     glbNodes.forEach(node => {
       // Special cases for buildings with simplified key structures
       if (building === "Tower Building") {
@@ -432,7 +432,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
       } else {
         if (node.building === building && node.floor === floor) {
           result.push(node);
-        } else if (node.building === building) {
         }
       }
     });
@@ -453,18 +452,7 @@ export const useGLBState = create<GLBState>((set, get) => ({
       key = `${building}/${floor}/${unit}`;
     }
     
-    // Debug logging
-    console.log(`🔎 getGLBByUnit looking for key: '${key}' (building: '${building}', floor: '${floor}', unit: '${unit}')`);
-    
     const result = glbNodes.get(key);
-    if (!result) {
-      // Try to find similar keys for debugging
-      const similarKeys = Array.from(glbNodes.keys()).filter(k => 
-        k.includes(building) && k.includes(unit)
-      );
-      console.log(`🔍 Similar keys found:`, similarKeys);
-    }
-    
     return result;
   },
 
@@ -513,5 +501,91 @@ export const useGLBState = create<GLBState>((set, get) => ({
       // If same priority, sort alphabetically
       return a.localeCompare(b);
     });
+  },
+
+  // Camera controls functions
+  setCameraControlsRef: (ref: React.MutableRefObject<any> | null) => {
+    set({ cameraControlsRef: ref });
+  },
+
+  centerCameraOnUnit: (building: string, floor: string, unit: string) => {
+    const { cameraControlsRef, getGLBByUnit, isCameraAnimating } = get();
+    
+    // Prevent duplicate calls during animation
+    if (isCameraAnimating) {
+      return;
+    }
+    
+    if (!cameraControlsRef?.current) {
+      return;
+    }
+
+    const unitGLB = getGLBByUnit(building, floor, unit);
+    if (!unitGLB?.object) {
+      return;
+    }
+
+    const controls = cameraControlsRef.current;
+    const camera = controls.object;
+    
+    if (!controls || !camera) {
+      return;
+    }
+
+    // Get the unit's world position
+    const unitPosition = new THREE.Vector3();
+    unitGLB.object.getWorldPosition(unitPosition);
+    
+    // If at origin, try bounding box center
+    if (unitPosition.lengthSq() < 0.01) {
+      const box = new THREE.Box3().setFromObject(unitGLB.object);
+      box.getCenter(unitPosition);
+    }
+
+    // Skip if we still can't find a valid position
+    if (unitPosition.lengthSq() < 0.01) {
+      return;
+    }
+
+    // Set animation state
+    set({ isCameraAnimating: true });
+
+    // Store initial values
+    const startTarget = controls.target.clone();
+    const startTime = performance.now();
+    const animationDuration = 1200; // 1.2 seconds for smooth movement
+
+    // Calculate the new target - just move target to unit position (no camera position change)
+    const endTarget = unitPosition.clone();
+    
+    // Easing function for smooth animation
+    const easeInOutCubic = (t: number): number => {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    // Animation loop
+    const animate = () => {
+      const currentTime = performance.now();
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / animationDuration, 1);
+      
+      // Apply easing
+      const easedProgress = easeInOutCubic(progress);
+      
+      // Interpolate target position only (keep camera position unchanged)
+      const currentTarget = new THREE.Vector3().lerpVectors(startTarget, endTarget, easedProgress);
+      controls.target.copy(currentTarget);
+      controls.update();
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Animation complete
+        set({ isCameraAnimating: false });
+      }
+    };
+    
+    // Start the animation
+    requestAnimationFrame(animate);
   }
 }));

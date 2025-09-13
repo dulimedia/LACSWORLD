@@ -31,9 +31,6 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
         finalUrl = url + cacheBuster;
       }
       
-      console.log('🌐 CSV URL Debug - Original URL:', url);
-      console.log('🌐 CSV URL Debug - Is Google Sheets:', isGoogleSheets);
-      console.log('🌐 CSV URL Debug - Final URL:', finalUrl);
       const response = await fetch(finalUrl, { 
         cache: 'no-store',
         headers: {
@@ -61,9 +58,12 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
               if (unitName) {
                 // Store with multiple possible keys for better matching
                 const floorplanUrl = row['Floorplan'] || row['Column 1'];
+                // Convert availability to boolean
+                const isAvailable = row.Available === '1' || row.Available === 'true' || row.Available === true;
+                
                 const unitDataEntry = {
                   name: row.Product,
-                  availability: row.Available,
+                  availability: isAvailable,
                   size: row.Size,
                   floorPlanUrl: floorplanUrl,
                   floorplan_url: floorplanUrl, // Ensure both naming conventions work
@@ -73,19 +73,12 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                   building: row.Building,
                   floor: row.Floor || '',
                   area_sqft: parseInt(row.Size) || 0,
-                  status: row.Available,
+                  status: isAvailable,
                   unit_type: row.Unit_Type || 'Commercial',
-                  kitchen_size: row.Kitchen_Size || 'None'
+                  kitchen_size: row.Kitchen_Size || 'None',
+                  height: row.Height || ''
                 };
                 
-                // Debug logging for units that should have kitchens
-                if (unitName === 'M-150' || unitName === 'M-140' || unitName === 'F-100' || unitName === 'T-320') {
-                  console.log('🍳 CSV Debug for', unitName, ':', {
-                    kitchen_size_raw: row.Kitchen_Size,
-                    kitchen_size_final: unitDataEntry.kitchen_size,
-                    full_row: row
-                  });
-                }
                 
                 
                 // Store with multiple key formats for flexible matching

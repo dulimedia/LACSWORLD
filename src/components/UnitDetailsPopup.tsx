@@ -116,7 +116,7 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
     }
   };
 
-  const isAvailable = displayUnit.status === 'Available';
+  const isAvailable = displayUnit.status === true;
 
   return (
     <AnimatePresence>
@@ -189,7 +189,7 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                 }`} />
                 <div>
                   <div className="font-medium">
-                    {displayUnit.status}
+                    {displayUnit.status === true ? 'Available' : 'Unavailable'}
                   </div>
                   {!isAvailable && (
                     <div className="text-sm opacity-90">
@@ -206,6 +206,15 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
                     <span className="text-sm font-medium text-gray-700">Area</span>
                     <span className="text-sm text-gray-900">
                       {displayUnit.area_sqft.toLocaleString()} sq ft
+                    </span>
+                  </div>
+                )}
+
+                {displayUnit.height && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Max Height</span>
+                    <span className="text-sm text-gray-900">
+                      {displayUnit.height}
                     </span>
                   </div>
                 )}
