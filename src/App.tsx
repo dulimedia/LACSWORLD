@@ -26,7 +26,7 @@ import { emitEvent, getTimestamp } from './lib/events';
 import * as THREE from 'three';
 
 // Local CSV data source
-const CSV_URL = import.meta.env.BASE_URL + 'unit-data.csv';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRvL13t3fM2QWZYMvoYsdm95JlWIKXhBuecPUdQH0iAGOLOyrEkC2MPRHp8ALIREV-Yec_ToOR7_q2M/pub?output=csv';
 
 // Simple Error Boundary for HDRI loading
 class HDRIErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {

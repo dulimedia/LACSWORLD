@@ -12,7 +12,7 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
   const [isSending, setIsSending] = useState(false);
   
   // Get CSV data for live availability updates
-  const CSV_URL = import.meta.env.BASE_URL + 'unit-data.csv';
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRvL13t3fM2QWZYMvoYsdm95JlWIKXhBuecPUdQH0iAGOLOyrEkC2MPRHp8ALIREV-Yec_ToOR7_q2M/pub?output=csv';
   const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
 
   // Generate units structure from CSV data, filtering only available units
