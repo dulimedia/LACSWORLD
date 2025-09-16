@@ -11,7 +11,7 @@ interface FloorplanMapping {
 const AVAILABLE_FLOORPLANS = [
   // Site map for stages and production areas
   'LACS_Site Map_M1_Color_page_1.png',
-  // Fifth Street Building Ground Floor floorplan
+  // First Street Building Ground Floor floorplan
   'FGFloor_LACS_page_1.png',
   'f10.jpg', 'f100.jpg', 'f105.jpg', 'f115.jpg', 'f140.jpg', 'f150.jpg',
   'f160.jpg', 'f170.jpg', 'f175.jpg', 'f180.jpg', 'f185.jpg', 'f187.jpg',
@@ -165,7 +165,7 @@ const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'm40': 'mg floorplan.jpg', 
   'm45': 'mg floorplan.jpg',
   'm50': 'mg floorplan.jpg',
-  // All Fifth Street Building Ground Floor units use the same floorplan
+  // All First Street Building Ground Floor units use the same floorplan
   'f10': 'FGFloor_LACS_page_1.png',
   'f15': 'FGFloor_LACS_page_1.png',
   'f20': 'FGFloor_LACS_page_1.png',
@@ -234,7 +234,7 @@ const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'productionoffice6': 'LACS_Site Map_M1_Color_page_1.png'
 };
 
-// Check if unit is a Fifth Street Building ground floor unit
+// Check if unit is a First Street Building ground floor unit
 export function isFifthStreetGroundFloorUnit(unitName: string): boolean {
   if (!unitName) return false;
   const cleanName = cleanUnitName(unitName);
@@ -282,7 +282,7 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
     return null;
   }
   
-  // Check Fifth Street Building ground floor units FIRST (highest priority)
+  // Check First Street Building ground floor units FIRST (highest priority)
   if (isFifthStreetGroundFloorUnit(unitName)) {
     const floorplanPath = `floorplans/converted/FGFloor_LACS_page_1.png`;
     return floorplanPath;

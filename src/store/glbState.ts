@@ -69,7 +69,7 @@ export interface GLBState {
 
 // GLB file structure mapping based on the actual file system (exact match)
 const GLB_STRUCTURE = {
-  "Fifth Street Building": {
+  "First Street Building": {
     "Gound Floor": ["F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
     "First Floor": ["F-100", "F-105", "F-110 CR", "F-115", "F-140", "F-150", "F-160", "F-170", "F-175", "F-180 ", "F-185", "F-187", "F-190", "F1 Restrooms"],
     "Second Floor": ["F-200", "F-240", "F-250", "F-280", "F-290", "F2 Restrooms"],
@@ -82,17 +82,7 @@ const GLB_STRUCTURE = {
     "Third Floor": ["M-300", "M-320", "M-340", "M-345", "M-350", "M3 Restroom"]
   },
   "Tower Building": {
-    "Main Floor": ["T-950", "T-100", "T-1000", "T-110", "T-1100", "T-1200", "T-200", "T-210", "T-220", "T-230", "T-300", "T-320", "T-400", "T-410", "T-420", "T-430", "T-450", "T-500", "T-530", "T-550", "T-600", "T-700", "T-800", "T-900"]
-  },
-  "Other": {
-    "Event Space": ["Event Area 1", "Flix Cafe", "Theater"],
-    "Mills": ["MILL 2", "MILL 3 OFFICE", "MILL 3", "MILL 4"],
-    "Parking": ["Park", "Surface Parking 2", "Surface Parking"],
-    "Shops": ["Kiosk", "Lobby - 2 "]
-  },
-  "Stages": {
-    "Production": ["Production Support - A", "Production Support - B", "Production Support - D", "Production Support C"],
-    "": ["Stage 7", "Stage 8", "Stage A", "Stage B", "Stage C", "Stage D", "Stage E", "Stage F"]
+    "Main Floor": ["T-950", "T-100", "T-1000 ", "T-110", "T-1100 ", "T-1200 ", "T-200", "T-210", "T-220", "T-230", "T-300", "T-320", "T-400 ", "T-410 ", "T-420 ", "T-430 ", "T-450 ", "T-500", "T-530", "T-550", "T-600", "T-700 ", "T-800 ", "T-900 "]
   }
 };
 
@@ -132,15 +122,14 @@ export const useGLBState = create<GLBState>((set, get) => ({
           // Special case for Tower Building - files are directly in building folder
           let path;
           if (building === "Tower Building") {
-            // For Tower Building, check if we need to add trailing space for file compatibility
-            const fileUnit = unit === "T-950" ? "T- 950" : 
-                           ["T-1000", "T-1100", "T-1200", "T-400", "T-410", "T-420", "T-430", "T-450", "T-700", "T-800", "T-900"].includes(unit) ? unit + " " : unit;
+            // For Tower Building, handle special case for T-950 which has different spacing
+            const fileUnit = unit === "T-950" ? "T- 950" : unit;
             path = import.meta.env.BASE_URL + `models/boxes/${building}/${fileUnit}.glb`;
           } else {
             // Handle empty floor strings to avoid double slashes
             const floorPath = floor ? `/${floor}` : '';
-            // For Fifth Street Building, check if we need trailing space for F-180
-            const fileUnit = (building === "Fifth Street Building" && unit === "F-180") ? "F-180 " :
+            // For First Street Building, check if we need trailing space for F-180
+            const fileUnit = (building === "First Street Building" && unit === "F-180") ? "F-180 " :
                            (building === "Maryland Building" && unit === "MG - Stage 7") ? "MG - Stage 7 " : unit;
             path = import.meta.env.BASE_URL + `models/boxes/${building}${floorPath}/${fileUnit}.glb`;
           }

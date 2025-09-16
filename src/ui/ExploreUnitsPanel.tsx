@@ -12,7 +12,9 @@ import {
   ArrowLeft,
   Expand,
   Share,
-  MessageCircle 
+  MessageCircle,
+  Sliders,
+  Home
 } from 'lucide-react';
 import { useExploreState, type UnitRecord } from '../store/exploreState';
 import { useGLBState } from '../store/glbState';
@@ -45,6 +47,7 @@ interface ExploreUnitsPanelProps {
   onClose: () => void;
   onRequest?: (unitKey: string, unitName: string) => void;
   onExpandFloorplan?: (floorplanUrl: string, unitName: string, unitData?: any) => void;
+  pageType?: 'main' | 'events' | 'stages';
 }
 
 interface BuildingNodeProps {
@@ -252,11 +255,18 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   const { getFloorList, getUnitsByFloor, getUnitData } = useExploreState();
   const [expandedFloors, setExpandedFloors] = useState<Record<string, boolean>>({});
   
+  // Get filter state from parent component context
+  const filters = useExploreState(state => ({
+    minSqft: state.filters?.minSqft || 0,
+    maxSqft: state.filters?.maxSqft || 20000,
+    hasKitchen: state.filters?.hasKitchen || 'any'
+  }));
+  
   const floors = getFloorList(building);
   
-  // Calculate building stats
-  const { availableCount, totalCount } = useMemo(() => {
-    let available = 0;
+  // Calculate building stats with filters applied
+  const { filteredCount, totalCount } = useMemo(() => {
+    let filtered = 0;
     let total = 0;
     
     floors.forEach(floor => {
@@ -264,11 +274,26 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
       const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
       
       total += units.length;
-      available += units.filter(unit => unit.status === true).length;
+      
+      // Apply same filter logic as unitPassesFilters
+      units.forEach(unit => {
+        const sqft = unit.area_sqft || 0;
+        
+        if (filters.minSqft !== -1 && sqft < filters.minSqft) return;
+        if (filters.maxSqft !== -1 && sqft > filters.maxSqft) return;
+        
+        if (filters.hasKitchen !== 'any') {
+          const hasKitchen = unit.kitchen_size && unit.kitchen_size !== 'None';
+          if (filters.hasKitchen === 'yes' && !hasKitchen) return;
+          if (filters.hasKitchen === 'no' && hasKitchen) return;
+        }
+        
+        filtered++;
+      });
     });
     
-    return { availableCount: available, totalCount: total };
-  }, [building, floors, getUnitsByFloor, getUnitData]);
+    return { filteredCount: filtered, totalCount: total };
+  }, [building, floors, getUnitsByFloor, getUnitData, filters]);
 
   const toggleFloorExpanded = (floor: string) => {
     setExpandedFloors(prev => ({ ...prev, [floor]: !prev[floor] }));
@@ -297,16 +322,16 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
           <Building size={16} className="text-blue-600" />
           <div>
             <div className="text-sm font-semibold text-gray-900">{building}</div>
-            <div className="text-xs text-gray-500">{floors.length} floors</div>
+            <div className="text-xs text-gray-500">{filteredCount} units</div>
           </div>
         </div>
         <div className="text-right">
           <div className="text-sm font-medium text-gray-700">
-            <span className="text-green-600">{availableCount}</span>
+            <span className="text-blue-600">{filteredCount}</span>
             <span className="text-gray-400 mx-1">/</span>
             <span>{totalCount}</span>
           </div>
-          <div className="text-xs text-gray-500">units available</div>
+          <div className="text-xs text-gray-500">units shown</div>
         </div>
       </div>
       
@@ -333,12 +358,16 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   isOpen,
   onClose,
   onRequest,
-  onExpandFloorplan
+  onExpandFloorplan,
+  pageType = 'main'
 }) => {
+  const exploreState = useExploreState();
   const { 
     showAvailableOnly, 
     setShowAvailableOnly, 
     getBuildingList, 
+    getFloorList,
+    getUnitsByFloor,
     isLoadingUnits,
     selectedUnitKey,
     getUnitData,
@@ -346,13 +375,48 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     setHovered,
     setUnitDetailsOpen,
     setShow3DPopup
-  } = useExploreState();
+  } = exploreState;
   
   
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBuildings, setExpandedBuildings] = useState<Record<string, boolean>>({});
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+  
+  // Set fixed min/max range for better user experience  
+  const { actualMinSqft, actualMaxSqft } = useMemo(() => {
+    return {
+      actualMinSqft: 0,      // Fixed minimum at 0
+      actualMaxSqft: 20000   // Fixed maximum at 20k
+    };
+  }, []);
+
+  // Filter state with fixed range
+  const [filters, setFilters] = useState({
+    minSqft: -1,     // Start with "any size"
+    maxSqft: -1,     // Start with "any size" (show all units)
+    hasKitchen: 'any' as 'any' | 'yes' | 'no'
+  });
+
+
+  // Generate square footage options (0 to 20000 in increments of 250)
+  const sqftOptions = useMemo(() => {
+    const options = [];
+    
+    // Add "any size" option
+    options.push({
+      value: -1,
+      label: 'any size'
+    });
+    
+    for (let i = 0; i <= 20000; i += 250) {
+      options.push({
+        value: i,
+        label: i === 0 ? '0' : i.toString()
+      });
+    }
+    return options;
+  }, []);
   const [hoveredUnit, setHoveredUnit] = useState<{
     unitName: string;
     unitData?: any;
@@ -538,6 +602,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   
   
   const buildings = getBuildingList();
+  console.log('🔍 ExploreUnitsPanel: buildings from getBuildingList():', buildings);
   
   // Toggle tree path expansion with smart auto-close behavior
   const toggleExpand = (path: string) => {
@@ -598,6 +663,63 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     selectBuilding(building);
   };
 
+  // Filter function to check if unit passes current filters
+  const unitPassesFilters = useCallback((unitData: UnitRecord | null) => {
+    if (!unitData) return false;
+    
+    // Always filter out unavailable units
+    if (unitData.status !== true) return false;
+    
+    // Square footage filter
+    const sqft = unitData.area_sqft || 0;
+    if (filters.minSqft !== -1 && sqft < filters.minSqft) return false;
+    if (filters.maxSqft !== -1 && sqft > filters.maxSqft) return false;
+    
+    // Kitchen filter
+    if (filters.hasKitchen !== 'any') {
+      const hasKitchen = unitData.kitchen_size && 
+                        unitData.kitchen_size !== 'None' && 
+                        unitData.kitchen_size !== 'N/A';
+      
+      if (filters.hasKitchen === 'yes' && !hasKitchen) return false;
+      if (filters.hasKitchen === 'no' && hasKitchen) return false;
+    }
+    
+    return true;
+  }, [filters]);
+
+  // Helper function to calculate filtered units for building in dropdown
+  const getBuildingFilteredCount = useCallback((buildingName: string): { filteredCount: number; totalCount: number } => {
+    const floors = getFloorList(buildingName);
+    let filtered = 0;
+    let total = 0;
+    
+    floors.forEach(floor => {
+      const unitKeys = getUnitsByFloor(buildingName, floor);
+      const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
+      
+      total += units.length;
+      
+      // Apply same filter logic
+      units.forEach(unit => {
+        const sqft = unit.area_sqft || 0;
+        
+        if (filters.minSqft !== -1 && sqft < filters.minSqft) return;
+        if (filters.maxSqft !== -1 && sqft > filters.maxSqft) return;
+        
+        if (filters.hasKitchen !== 'any') {
+          const hasKitchen = unit.kitchen_size && unit.kitchen_size !== 'None';
+          if (filters.hasKitchen === 'yes' && !hasKitchen) return;
+          if (filters.hasKitchen === 'no' && hasKitchen) return;
+        }
+        
+        filtered++;
+      });
+    });
+    
+    return { filteredCount: filtered, totalCount: total };
+  }, [getFloorList, getUnitsByFloor, getUnitData, filters]);
+
   // Render tree nodes from GLB structure
   const renderGLBNode = (node: TreeNode | string, path: string, parentPath: string[] = []): React.ReactNode => {
     if (typeof node === 'string') {
@@ -633,6 +755,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
 
       // ALWAYS hide unavailable units completely (never show them in UI)
       if (!isAvailable) {
+        return null;
+      }
+      
+      // Apply filters - hide units that don't pass
+      if (!unitPassesFilters(unitData)) {
         return null;
       }
 
@@ -756,6 +883,9 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       const isFloor = parentPath.length === 1;
       
       if (isBuilding) {
+        // Get filtered unit count for this building
+        const { filteredCount, totalCount } = getBuildingFilteredCount(node.name);
+        
         // Building card for vertical layout
         return (
           <div key={nodePath} className="w-full bg-white bg-opacity-50 backdrop-blur-md border border-white border-opacity-50 rounded-lg shadow-sm overflow-hidden">
@@ -779,7 +909,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   <div>
                     <div className="font-semibold text-gray-900 text-xs">{node.name}</div>
                     <div className="text-xs text-gray-500">
-                      {node.children ? `${node.children.length} floors` : '0 floors'}
+                      showing {filteredCount} units
                     </div>
                   </div>
                 </div>
@@ -922,6 +1052,107 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
             <X size={12} className="text-gray-600" />
           </button>
         </div>
+        
+        {/* Compact Filter Section */}
+        <div className="mt-3 space-y-2">
+          {/* Square Footage Filter */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-1">
+              <Sliders size={14} className="text-gray-500" />
+              <span className="text-xs font-medium text-gray-700">Square Footage:</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {/* Min Dropdown */}
+              <div className="space-y-1">
+                <label className="text-xs text-gray-600">Min</label>
+                <select
+                  value={filters.minSqft}
+                  onChange={(e) => {
+                    const newMin = parseInt(e.target.value);
+                    setFilters(prev => ({
+                      ...prev,
+                      minSqft: Math.min(newMin, prev.maxSqft)
+                    }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                >
+                  {sqftOptions
+                    .filter(opt => filters.maxSqft === -1 || opt.value <= filters.maxSqft || opt.value === -1)
+                    .map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Max Dropdown */}
+              <div className="space-y-1">
+                <label className="text-xs text-gray-600">Max</label>
+                <select
+                  value={filters.maxSqft}
+                  onChange={(e) => {
+                    const newMax = parseInt(e.target.value);
+                    setFilters(prev => ({
+                      ...prev,
+                      maxSqft: Math.max(newMax, prev.minSqft)
+                    }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                >
+                  {sqftOptions
+                    .filter(opt => filters.minSqft === -1 || opt.value >= filters.minSqft || opt.value === -1)
+                    .map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          {/* Kitchen Filter */}
+          <div className="space-y-2">
+            <div className="flex items-center space-x-1">
+              <Home size={14} className="text-gray-500" />
+              <span className="text-xs font-medium text-gray-700">Kitchen:</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'any' }))}
+                className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                  filters.hasKitchen === 'any' 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                Any
+              </button>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'yes' }))}
+                className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                  filters.hasKitchen === 'yes' 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                With Kitchen
+              </button>
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'no' }))}
+                className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                  filters.hasKitchen === 'no' 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                No Kitchen
+              </button>
+            </div>
+          </div>
+          
+        </div>
       </div>
 
       {/* Sliding Content Container */}
@@ -1025,26 +1256,27 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                       {selectedUnitDetails?.unit_type || 'Suite'}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Kitchen</p>
-                    <p className="text-lg font-semibold text-gray-900">
-{(() => {
-                        const kitchenSize = selectedUnitDetails?.kitchen_size;
-                        
-                        if (!kitchenSize || kitchenSize === 'None' || kitchenSize === 'N/A') {
-                          return 'No Kitchen';
-                        } else if (kitchenSize === 'Full') {
-                          return 'Full Kitchen';
-                        } else if (kitchenSize === 'Compact') {
-                          return 'Compact Kitchen';
-                        } else if (kitchenSize === 'Kitchenette') {
-                          return 'Kitchenette';
-                        } else {
-                          return `Kitchen: ${kitchenSize}`;
-                        }
-                      })()}
-                    </p>
-                  </div>
+                  {/* Only show kitchen info if unit actually has a kitchen */}
+                  {(() => {
+                    const kitchenSize = selectedUnitDetails?.kitchen_size;
+                    
+                    // Don't show kitchen section at all if no kitchen
+                    if (!kitchenSize || kitchenSize === 'None' || kitchenSize === 'N/A') {
+                      return null;
+                    }
+                    
+                    return (
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Kitchen</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {kitchenSize === 'Full' ? 'Full Kitchen' :
+                           kitchenSize === 'Compact' ? 'Compact Kitchen' :
+                           kitchenSize === 'Kitchenette' ? 'Kitchenette' :
+                           `Kitchen: ${kitchenSize}`}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -198,7 +198,10 @@ export const useExploreState = create<ExploreState>((set, get) => ({
   },
 
   getBuildingList: () => {
-    return Object.keys(get().unitsByBuilding).sort();
+    const buildings = Object.keys(get().unitsByBuilding).sort();
+    console.log('🏢 getBuildingList: Available buildings:', buildings);
+    console.log('🏢 getBuildingList: unitsByBuilding data:', get().unitsByBuilding);
+    return buildings;
   },
 
   getFloorList: (building: string) => {

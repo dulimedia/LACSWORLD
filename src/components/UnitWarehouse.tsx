@@ -307,7 +307,9 @@ interface UnitWarehouseProps {
   unitData: Record<string, UnitData>;
   filterHoveredUnit?: string | null; 
   onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void; 
-  onLoadingProgress?: (loaded: number, total: number) => void; 
+  onLoadingProgress?: (loaded: number, total: number) => void;
+  showOnlyEventSpaces?: boolean;
+  showOnlyStages?: boolean;
 }
 
 const isUnitFile = (fileName:string): boolean => {
@@ -540,7 +542,9 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
   unitData,
   filterHoveredUnit,
   onBoundingSphereData,
-  onLoadingProgress
+  onLoadingProgress,
+  showOnlyEventSpaces,
+  showOnlyStages
 }) => {
   const { activeFilter, isUnitActive, activeUnits } = useFilterStore();
   const activeUnitsList = useMemo(() => Array.from(activeUnits), [activeUnits]);
@@ -657,7 +661,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       return true;
     }
     
-    // Extract unit name from full path (e.g., "boxes/Fifth Street Building/First Floor/F-100" -> "F-100")
+    // Extract unit name from full path (e.g., "boxes/First Street Building/First Floor/F-100" -> "F-100")
     const unitNameOnly = unitName.split('/').pop() || unitName;
     const cleanUnitName = unitNameOnly.replace(/\.glb$/i, '');
     

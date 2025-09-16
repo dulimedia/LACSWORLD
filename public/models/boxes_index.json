@@ -1,8 +1,8 @@
 {
-  "name": "boxes",
+  "name": "boxes", 
   "children": [
     {
-      "name": "Fifth Street Building",
+      "name": "First Street Building",
       "children": [
         {
           "name": "First Floor",
@@ -120,65 +120,6 @@
             "M-345.glb",
             "M-350.glb",
             "M3 Restroom.glb"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Other",
-      "children": [
-        {
-          "name": "Event Space",
-          "children": [
-            "Event Area 1.glb",
-            "Flix Cafe.glb",
-            "Theater.glb"
-          ]
-        },
-        {
-          "name": "Mills",
-          "children": [
-            "MILL 2.glb",
-            "MILL 3 OFFICE.glb",
-            "MILL 3.glb",
-            "MILL 4.glb"
-          ]
-        },
-        {
-          "name": "Parking",
-          "children": [
-            "Park.glb",
-            "Surface Parking 2.glb",
-            "Surface Parking.glb"
-          ]
-        },
-        {
-          "name": "Shops",
-          "children": [
-            "Kiosk.glb",
-            "Lobby - 2 .glb"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Stages",
-      "children": [
-        "Stage 7.glb",
-        "Stage 8.glb",
-        "Stage A.glb",
-        "Stage B.glb",
-        "Stage C.glb",
-        "Stage D.glb",
-        "Stage E.glb",
-        "Stage F.glb",
-        {
-          "name": "Production",
-          "children": [
-            "Production Support - A.glb",
-            "Production Support - B.glb",
-            "Production Support - D.glb",
-            "Production Support C.glb"
           ]
         }
       ]
