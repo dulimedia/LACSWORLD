@@ -38,6 +38,13 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
   onToggleOpen,
   dropDirection = 'up' // Default to 'up' for backward compatibility
 }) => {
+  // Debug: Log unit data on mount
+  useEffect(() => {
+    console.log(`📊 FilterDropdown received ${Object.keys(unitData).length} units`);
+    if (Object.keys(unitData).length > 0) {
+      console.log('📋 Sample units:', Object.keys(unitData).slice(0, 5));
+    }
+  }, [unitData]);
   const { selectedUnit, setSelectedUnit } = useUnitStore();
   const { activeFilter, setFilter, clearFilter } = useFilterStore();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -104,6 +111,13 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
       const unitName = filenameToUnitName(displayName);
       const isSelected = selectedUnit === unitName;
       const unitMeta = unitData[unitName];
+      
+      // Debug logging for unit matching
+      if (!unitMeta) {
+        console.log(`🔍 UNIT NOT FOUND: "${unitName}" (from ${displayName})`);
+        console.log(`Available units:`, Object.keys(unitData).slice(0, 10), '...');
+      }
+      
       const isAvailable = unitMeta ? (unitMeta.availability?.toLowerCase().includes('available') || unitMeta.availability?.toLowerCase() === 'true') : false;
 
       return (
