@@ -127,7 +127,6 @@
     {
       "name": "Tower Building",
       "children": [
-        "T- 950.glb",
         "T-100.glb",
         "T-110.glb",
         "T-200.glb",
@@ -136,23 +135,22 @@
         "T-230.glb",
         "T-300.glb",
         "T-320.glb",
-        "T-400 .glb",
-        "T-410 .glb",
-        "T-420 .glb",
-        "T-430 .glb",
-        "T-450 .glb",
+        "T-400.glb",
+        "T-410.glb",
+        "T-420.glb",
+        "T-430.glb",
+        "T-450.glb",
         "T-500.glb",
         "T-530.glb",
         "T-550.glb",
         "T-600.glb",
-        "T-700 .glb",
-        "T-800 .glb",
-        "T-900 .glb",
-        "T-1000 .glb",
-        "T-1100 .glb",
-        "T-1200 .glb",
-        "T-G10 .glb",
-        "T-G20 .glb"
+        "T-700.glb",
+        "T-800.glb",
+        "T-900.glb",
+        "T-950.glb",
+        "T-1000.glb",
+        "T-1100.glb",
+        "T-1200.glb"
       ]
     }
   ]
