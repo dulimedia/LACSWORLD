@@ -58,8 +58,8 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
               if (unitName) {
                 // Store with multiple possible keys for better matching
                 const floorplanUrl = row['Floorplan'] || row['Column 1'];
-                // Convert availability to boolean
-                const isAvailable = row.Available === '1' || row.Available === 'true' || row.Available === true;
+                // Convert availability to boolean - handle "Available"/"Occupied" text values
+                const isAvailable = row.Available?.toLowerCase().trim() === 'available';
                 
                 const unitDataEntry = {
                   name: row.Product,
