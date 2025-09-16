@@ -118,7 +118,7 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
         console.log(`Available units:`, Object.keys(unitData).slice(0, 10), '...');
       }
       
-      const isAvailable = unitMeta ? (unitMeta.availability?.toLowerCase().includes('available') || unitMeta.availability?.toLowerCase() === 'true') : false;
+      const isAvailable = unitMeta ? !!unitMeta.availability : false;
 
       return (
         <div
@@ -129,14 +129,14 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
           onClick={() => {
             // Set individual unit filter
             const building = parentPath[0];
-            const floor = parentPath[1];
+            const floor = parentPath[1] || 'All Floors'; // For flat structures like Tower Building
             
             const unitFilter: FilterSelection = {
               level: 'unit',
               building,
               floor,
               unit: unitName,
-              path: `${building}/${floor}/${displayName}`
+              path: `${building}${floor ? '/' + floor : ''}/${displayName}`
             };
             
             setFilter(unitFilter);
@@ -159,6 +159,9 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
       const currentPath = [...parentPath, node.name];
       const isBuilding = parentPath.length === 0; // Top level = building
       const isFloor = parentPath.length === 1; // Second level = floor
+      
+      // Check if this building has a flat structure (direct GLB files as children)
+      const hasFlatStructure = isBuilding && node.children && node.children.some(child => typeof child === 'string');
       
       return (
         <div key={nodePath} className="border-t border-gray-100">
@@ -202,7 +205,7 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
             <div className="text-xs text-gray-500">{node.children ? node.children.length : 0}</div>
           </div>
           {expanded && node.children && (
-            <div className="pl-4">
+            <div className={hasFlatStructure ? "pl-4" : "pl-4"}>
               {node.children.map((child, idx) => renderNode(child, `${nodePath}/${typeof child === 'string' ? child : child.name}-${idx}`, currentPath))}
             </div>
           )}
