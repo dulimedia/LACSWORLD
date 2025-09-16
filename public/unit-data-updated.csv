@@ -24,6 +24,27 @@ T-110,Available,980,"Central Air • Storage • City View",/floorplans/t-1floor
 T-200,Available,1350,"Central Air • In-unit Laundry • Storage • Corner Unit • Premium",/floorplans/t200.jpg,Tower Building,,Suite,Full
 T-210,Occupied,890,"Central Air • Storage",/floorplans/t210.jpg,Tower Building,,Suite,Kitchenette
 T-220,Available,1100,"Central Air • In-unit Laundry • Storage • Balcony",/floorplans/t220.jpg,Tower Building,,Suite,Full
+T-230,Available,1250,"Central Air • In-unit Laundry • Storage",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-300,Available,1400,"Central Air • In-unit Laundry • Storage • Premium",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-320,Available,1150,"Central Air • Storage • City View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Compact
+T-400,Available,1500,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-410,Available,1450,"Central Air • In-unit Laundry • Storage",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-420,Available,1300,"Central Air • Storage • Balcony",/floorplans/tower-unit.jpg,Tower Building,,Suite,Compact
+T-430,Available,1550,"Central Air • In-unit Laundry • Storage • Premium",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-450,Available,1600,"Central Air • In-unit Laundry • Storage • Corner Unit",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-500,Available,1700,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-530,Available,1650,"Central Air • In-unit Laundry • Storage",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-550,Available,1750,"Central Air • In-unit Laundry • Storage • Balcony",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-600,Available,1800,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-700,Available,2000,"Central Air • In-unit Laundry • Storage • Premium • Corner",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-800,Available,2200,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-900,Available,2400,"Central Air • In-unit Laundry • Storage • Premium • Penthouse",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-950,Available,2500,"Central Air • In-unit Laundry • Storage • Premium View • Penthouse",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-1000,Available,2600,"Central Air • In-unit Laundry • Storage • Premium • Penthouse",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-1100,Available,2800,"Central Air • In-unit Laundry • Storage • Premium View • Penthouse",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-1200,Available,3000,"Central Air • In-unit Laundry • Storage • Premium • Penthouse • Corner",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-G10,Available,800,"Central Air • Storage • Ground Level",/floorplans/tower-unit.jpg,Tower Building,,Suite,Compact
+T-G20,Available,850,"Central Air • Storage • Ground Level",/floorplans/tower-unit.jpg,Tower Building,,Suite,Compact
 Stage A,Available,2500,"Stage Lighting • Sound System • Green Room • Loading Dock",/floorplans/stage-a.jpg,Stages,,Stage,None
 Stage B,Available,3000,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/stage-b.jpg,Stages,,Stage,None
 Stage C,Available,2200,"Stage Lighting • Sound System • Green Room",/floorplans/stage-c.jpg,Stages,,Stage,None
