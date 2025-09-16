@@ -691,17 +691,21 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   // Helper function to calculate filtered units for building in dropdown
   const getBuildingFilteredCount = useCallback((buildingName: string): { filteredCount: number; totalCount: number } => {
     const floors = getFloorList(buildingName);
-    let filtered = 0;
-    let total = 0;
+    const uniqueUnits = new Set<string>();
+    const filteredUnits = new Set<string>();
     
     floors.forEach(floor => {
       const unitKeys = getUnitsByFloor(buildingName, floor);
       const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
       
-      total += units.length;
-      
-      // Apply same filter logic
+      // Deduplicate units by their unit_name
       units.forEach(unit => {
+        const unitName = unit.unit_name || unit.name;
+        if (!unitName) return;
+        
+        uniqueUnits.add(unitName);
+        
+        // Apply same filter logic
         const sqft = unit.area_sqft || 0;
         
         if (filters.minSqft !== -1 && sqft < filters.minSqft) return;
@@ -713,11 +717,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           if (filters.hasKitchen === 'no' && hasKitchen) return;
         }
         
-        filtered++;
+        filteredUnits.add(unitName);
       });
     });
     
-    return { filteredCount: filtered, totalCount: total };
+    return { filteredCount: filteredUnits.size, totalCount: uniqueUnits.size };
   }, [getFloorList, getUnitsByFloor, getUnitData, filters]);
 
   // Render tree nodes from GLB structure

@@ -127,7 +127,6 @@
     {
       "name": "Tower Building",
       "children": [
-        "T- 950.glb",
         "T-100.glb",
         "T-110.glb",
         "T-200.glb",
@@ -148,6 +147,7 @@
         "T-700 .glb",
         "T-800 .glb",
         "T-900.glb",
+        "T-950.glb",
         "T-1000 .glb",
         "T-1100.glb",
         "T-1200.glb"
