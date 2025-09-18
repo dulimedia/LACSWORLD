@@ -1,8 +1,8 @@
 {
-  "name": "boxes", 
+  "name": "boxes",
   "children": [
     {
-      "name": "First Street Building",
+      "name": "Fifth Street Building",
       "children": [
         {
           "name": "First Floor",
@@ -24,7 +24,7 @@
           ]
         },
         {
-          "name": "Gound Floor",
+          "name": "Ground Floor",
           "children": [
             "Club 76.glb",
             "F-10.glb",
@@ -95,7 +95,7 @@
             "M-45.glb",
             "M-50.glb",
             "MG - Stage 7 .glb",
-            "Studio O.M.glb"
+            "Studio O.M..glb"
           ]
         },
         {
@@ -128,7 +128,10 @@
       "name": "Tower Building",
       "children": [
         "T-100.glb",
+        "T-1000 .glb",
         "T-110.glb",
+        "T-1100 .glb",
+        "T-1200 .glb",
         "T-200.glb",
         "T-210.glb",
         "T-220.glb",
@@ -138,19 +141,16 @@
         "T-400 .glb",
         "T-410 .glb",
         "T-420 .glb",
-        "T-430.glb",
-        "T-450.glb",
+        "T-430 .glb",
+        "T-450 .glb",
         "T-500.glb",
         "T-530.glb",
         "T-550.glb",
         "T-600.glb",
         "T-700 .glb",
         "T-800 .glb",
-        "T-900.glb",
-        "T-950.glb",
-        "T-1000 .glb",
-        "T-1100.glb",
-        "T-1200.glb"
+        "T-900 .glb",
+        "T-950.glb"
       ]
     }
   ]

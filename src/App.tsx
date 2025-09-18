@@ -430,7 +430,6 @@ function App() {
           return; // Skip duplicate
         }
         
-        console.log(`✅ Processing unit ${unitKey} from ${unitData.building} - ${unitData.floor}`);
         
         
         const unitRecord: UnitRecord = {
@@ -460,10 +459,6 @@ function App() {
       // Build hierarchical index
       const unitsIndex = buildUnitsIndex(unitsMap);
       
-      console.log(`📊 Final CSV Processing Results:`);
-      console.log(`📊 Total units processed: ${unitsMap.size}`);
-      console.log(`📊 Buildings in index:`, Object.keys(unitsIndex));
-      console.log(`📊 Fifth Street Building floors:`, Object.keys(unitsIndex['Fifth Street Building'] || {}));
       
       // Update explore state
       setUnitsData(unitsMap);
