@@ -11,8 +11,8 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
   const [expandedBuildings, setExpandedBuildings] = useState(new Set());
   const [isSending, setIsSending] = useState(false);
   
-  // Get CSV data for live availability updates
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRvL13t3fM2QWZYMvoYsdm95JlWIKXhBuecPUdQH0iAGOLOyrEkC2MPRHp8ALIREV-Yec_ToOR7_q2M/pub?output=csv';
+  // Get CSV data for live availability updates - use same source as main app
+  const CSV_URL = './unit-data-updated.csv';
   const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
 
   // Generate units structure from CSV data, filtering only available units
@@ -25,8 +25,11 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
     
     // Process each unit from CSV data
     Object.values(csvUnitData).forEach(unitData => {
-      // Only include available units (status === true or availability === true)
-      const isAvailable = unitData.status === true || unitData.availability === true;
+      // Only include available units - check multiple possible fields safely
+      const isAvailable = unitData.status === true || 
+                         unitData.availability === true || 
+                         (typeof unitData.availability === 'string' && unitData.availability.toLowerCase() === 'available') ||
+                         (typeof unitData.status === 'string' && unitData.status.toLowerCase() === 'available');
       if (!isAvailable) {
         return; // Skip unavailable units
       }
@@ -37,6 +40,12 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
       
       if (!building || !unitName) {
         return; // Skip if missing essential data
+      }
+      
+      // Only include buildings that exist in the 3D scene
+      const allowedBuildings = ['Fifth Street Building', 'Maryland Building', 'Tower Building'];
+      if (!allowedBuildings.includes(building)) {
+        return; // Skip buildings not in the 3D visualization
       }
       
       // Initialize building if not exists

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment } from '@react-three/drei';
+import { CameraControls, Environment } from '@react-three/drei';
 import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
 import { UnitWarehouse } from './components/UnitWarehouse';
 import UnitDetailPopup from './components/UnitDetailPopup';
@@ -24,6 +24,16 @@ import { useGLBState } from './store/glbState';
 import { useCsvUnitData } from './hooks/useCsvUnitData';
 import { emitEvent, getTimestamp } from './lib/events';
 import * as THREE from 'three';
+
+// Adaptive pixel ratio component for performance optimization
+function AdaptivePixelRatio() {
+  const current = useThree((state) => state.performance.current);
+  const setPixelRatio = useThree((state) => state.setDpr);
+  useEffect(() => {
+    setPixelRatio(window.devicePixelRatio * current);
+  }, [current, setPixelRatio]);
+  return null;
+}
 
 // Local CSV data source
 const CSV_URL = './unit-data-updated.csv';
@@ -55,26 +65,26 @@ class HDRIErrorBoundary extends React.Component<{children: React.ReactNode}, {ha
 // Comprehensive unit data based on actual GLB files in boxes folder
 export const FALLBACK_UNIT_DATA = {
   // F-Series (Floor Units)  
-  'f-10': { name: 'f-10', size: '1,200 sq ft', availability: 'Available', amenities: 'Ground floor unit with loading dock access', glb: 'boxes/First Street Building/Gound Floor/F-10.glb' },
-  'f-15': { name: 'f-15', size: '1,500 sq ft', availability: 'Available', amenities: 'Large ground floor space', glb: 'boxes/First Street Building/Gound Floor/F-15.glb' },
-  'f-20': { name: 'f-20', size: '1,800 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/First Street Building/Gound Floor/F-20.glb' },
-  'f-25': { name: 'f-25', size: '1,400 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/First Street Building/Gound Floor/F-25.glb' },
-  'f-30': { name: 'f-30', size: '2,000 sq ft', availability: 'Available', amenities: 'Large floor unit', glb: 'boxes/First Street Building/Gound Floor/F-30.glb' },
-  'f-35': { name: 'f-35', size: '1,600 sq ft', availability: 'Occupied', amenities: 'Corner floor unit', glb: 'boxes/First Street Building/Gound Floor/F-35.glb' },
-  'f-40': { name: 'f-40', size: '1,300 sq ft', availability: 'Available', amenities: 'Standard floor space', glb: 'boxes/First Street Building/Gound Floor/F-40.glb' },
-  'f-50': { name: 'f-50', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/First Street Building/Gound Floor/F-50.glb' },
-  'f-60': { name: 'f-60', size: '1,400 sq ft', availability: 'Occupied', amenities: 'Mid-size floor unit', glb: 'boxes/First Street Building/Gound Floor/F-60.glb' },
-  'f-70': { name: 'f-70', size: '1,900 sq ft', availability: 'Available', amenities: 'Premium floor space', glb: 'boxes/First Street Building/Gound Floor/F-70.glb' },
-  'f-100': { name: 'f-100', size: '2,200 sq ft', availability: 'Available', amenities: 'Large floor unit with high ceilings', glb: 'boxes/First Street Building/First Floor/F-100.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f100.jpg' },
-  'f-105': { name: 'f-105', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office space', glb: 'boxes/First Street Building/First Floor/F-105.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f105.jpg' },
-  'f-110 cr': { name: 'f-110 cr', size: '1,500 sq ft', availability: 'Occupied', amenities: 'Conference room unit', glb: 'boxes/First Street Building/First Floor/F-110 CR.glb' },
-  'f-115': { name: 'f-115', size: '1,600 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/First Street Building/First Floor/F-115.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f115.jpg' },
-  'f-140': { name: 'f-140', size: '2,400 sq ft', availability: 'Available', amenities: 'Extra large floor space', glb: 'boxes/First Street Building/First Floor/F-140.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f140.jpg' },
-  'f-150': { name: 'f-150', size: '2,000 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/First Street Building/First Floor/F-150.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f150.jpg' },
-  'f-160': { name: 'f-160', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/First Street Building/First Floor/F-160.glb' },
-  'f-170': { name: 'f-170', size: '1,900 sq ft', availability: 'Available', amenities: 'Floor unit with loading access', glb: 'boxes/First Street Building/First Floor/F-170.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f170.jpg' },
-  'f-175': { name: 'f-175', size: '1,600 sq ft', availability: 'Available', amenities: 'Mid-size floor unit', glb: 'boxes/First Street Building/First Floor/F-175.glb' },
-  'f-180': { name: 'f-180', size: '2,100 sq ft', availability: 'Occupied', amenities: 'Large premium floor space', glb: 'boxes/First Street Building/First Floor/F-180 .glb' },
+  'f-10': { name: 'f-10', size: '1,200 sq ft', availability: 'Available', amenities: 'Ground floor unit with loading dock access', glb: 'boxes/Fifth Street Building/Ground Floor/F-10.glb' },
+  'f-15': { name: 'f-15', size: '1,500 sq ft', availability: 'Available', amenities: 'Large ground floor space', glb: 'boxes/Fifth Street Building/Ground Floor/F-15.glb' },
+  'f-20': { name: 'f-20', size: '1,800 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/Fifth Street Building/Ground Floor/F-20.glb' },
+  'f-25': { name: 'f-25', size: '1,400 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/Fifth Street Building/Ground Floor/F-25.glb' },
+  'f-30': { name: 'f-30', size: '2,000 sq ft', availability: 'Available', amenities: 'Large floor unit', glb: 'boxes/Fifth Street Building/Ground Floor/F-30.glb' },
+  'f-35': { name: 'f-35', size: '1,600 sq ft', availability: 'Occupied', amenities: 'Corner floor unit', glb: 'boxes/Fifth Street Building/Ground Floor/F-35.glb' },
+  'f-40': { name: 'f-40', size: '1,300 sq ft', availability: 'Available', amenities: 'Standard floor space', glb: 'boxes/Fifth Street Building/Ground Floor/F-40.glb' },
+  'f-50': { name: 'f-50', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/Fifth Street Building/Ground Floor/F-50.glb' },
+  'f-60': { name: 'f-60', size: '1,400 sq ft', availability: 'Occupied', amenities: 'Mid-size floor unit', glb: 'boxes/Fifth Street Building/Ground Floor/F-60.glb' },
+  'f-70': { name: 'f-70', size: '1,900 sq ft', availability: 'Available', amenities: 'Premium floor space', glb: 'boxes/Fifth Street Building/Ground Floor/F-70.glb' },
+  'f-100': { name: 'f-100', size: '2,200 sq ft', availability: 'Available', amenities: 'Large floor unit with high ceilings', glb: 'boxes/Fifth Street Building/First Floor/F-100.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f100.jpg' },
+  'f-105': { name: 'f-105', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office space', glb: 'boxes/Fifth Street Building/First Floor/F-105.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f105.jpg' },
+  'f-110 cr': { name: 'f-110 cr', size: '1,500 sq ft', availability: 'Occupied', amenities: 'Conference room unit', glb: 'boxes/Fifth Street Building/First Floor/F-110 CR.glb' },
+  'f-115': { name: 'f-115', size: '1,600 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-115.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f115.jpg' },
+  'f-140': { name: 'f-140', size: '2,400 sq ft', availability: 'Available', amenities: 'Extra large floor space', glb: 'boxes/Fifth Street Building/First Floor/F-140.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f140.jpg' },
+  'f-150': { name: 'f-150', size: '2,000 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-150.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f150.jpg' },
+  'f-160': { name: 'f-160', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/Fifth Street Building/First Floor/F-160.glb' },
+  'f-170': { name: 'f-170', size: '1,900 sq ft', availability: 'Available', amenities: 'Floor unit with loading access', glb: 'boxes/Fifth Street Building/First Floor/F-170.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f170.jpg' },
+  'f-175': { name: 'f-175', size: '1,600 sq ft', availability: 'Available', amenities: 'Mid-size floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-175.glb' },
+  'f-180': { name: 'f-180', size: '2,100 sq ft', availability: 'Occupied', amenities: 'Large premium floor space', glb: 'boxes/Fifth Street Building/First Floor/F-180 .glb' },
   'f-185': { name: 'f-185', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office' },
   'f-187': { name: 'f-187', size: '1,500 sq ft', availability: 'Available', amenities: 'Compact floor unit' },
   'f-190': { name: 'f-190', size: '2,000 sq ft', availability: 'Available', amenities: 'Large floor space' },
@@ -188,48 +198,25 @@ export const FALLBACK_UNIT_DATA = {
   'lobby - 2': { name: 'lobby - 2', size: '1,200 sq ft', availability: 'Available', amenities: 'Building lobby and reception area' },
 };
 
-// Camera controller with simple zoom limits
+// Enhanced Camera controller with CameraControls for smooth navigation
 const CameraController: React.FC<{
   selectedUnit: string | null;
   controlsRef: React.RefObject<any>;
 }> = ({ controlsRef }) => {
-  const { camera } = useThree();
-  
-  // Better initial camera settings - flipped 180 degrees and closer
-  const defaultTarget = new THREE.Vector3(0, 0, 0);
-  
-  // Mobile gets more zoomed out settings
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const maxDistance = 25; // Back to original max distance
-
   return (
-    <OrbitControls
+    <CameraControls
       ref={controlsRef}
-      enablePan={true}
-      enableZoom={true}
-      enableRotate={true}
-      minDistance={8}  // Increased zoom cutoff instead of collision detection
-      maxDistance={25} // Back to original max distance
-      dampingFactor={0.15} // Reduced for more responsive, smoother movement
-      enableDamping={true}
-      minPolarAngle={0} // Allow looking straight down
-      maxPolarAngle={Math.PI * 0.48} // Prevent camera from going under ground (slightly less than PI/2)
-      
-      // Mobile-specific touch controls
-      touches={{
-        ONE: THREE.TOUCH.ROTATE,     // Single finger rotates
-        TWO: THREE.TOUCH.DOLLY_PAN   // Two fingers zoom and pan
-      }}
-      mouseButtons={{
-        LEFT: THREE.MOUSE.ROTATE,
-        MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN
-      }}
-      
-      // Smoother, more responsive sensitivity
-      rotateSpeed={window.innerWidth < 768 ? 0.6 : 0.4}
-      zoomSpeed={window.innerWidth < 768 ? 0.6 : 0.4}
-      panSpeed={window.innerWidth < 768 ? 0.5 : 0.35}
+      makeDefault
+      minPolarAngle={0}
+      maxPolarAngle={Math.PI * 0.48}
+      minDistance={8}
+      maxDistance={25}
+      dollySpeed={1}
+      truckSpeed={0}
+      azimuthRotateSpeed={0.3}
+      polarRotateSpeed={0.3}
+      draggingSmoothTime={0.25}
+      smoothTime={0.25}
     />
   );
 };
@@ -367,13 +354,26 @@ function App() {
 
   // Debug logging for loading states
   
-  // Fallback: hide loading screen after 15 seconds if models never report completion
+  // Fallback: hide loading screen after 8 seconds if models never report completion
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
       setModelsLoading(false);
-    }, 15000);
+    }, 8000);
     
     return () => clearTimeout(fallbackTimer);
+  }, []);
+
+  // Handle window resize for proper canvas resizing
+  useEffect(() => {
+    const handleResize = () => {
+      // Force canvas to recalculate size
+      if (orbitControlsRef.current) {
+        orbitControlsRef.current.update();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   // Use CSV data if available, otherwise fallback data
@@ -415,7 +415,7 @@ function App() {
       const unitsMap = new Map<string, UnitRecord>();
       
       // Only include desired buildings
-      const allowedBuildings = ['First Street Building', 'Maryland Building', 'Tower Building'];
+      const allowedBuildings = ['Fifth Street Building', 'Maryland Building', 'Tower Building'];
       
       Object.entries(csvUnitData).forEach(([unitKey, unitData]) => {
         // Skip buildings we don't want to show
@@ -450,15 +450,12 @@ function App() {
         unitsMap.set(`${primaryKey}.glb`, unitRecord);
         unitsMap.set(unitData.name, unitRecord);
         unitsMap.set(`${unitData.name}.glb`, unitRecord);
+        
       });
 
       
       // Build hierarchical index
       const unitsIndex = buildUnitsIndex(unitsMap);
-      
-      console.log('🏗️ CSV Processing: unitsMap size:', unitsMap.size);
-      console.log('🏗️ CSV Processing: buildings in index:', Object.keys(unitsIndex));
-      console.log('🏗️ CSV Processing: unitsIndex structure:', unitsIndex);
       
       // Update explore state
       setUnitsData(unitsMap);
@@ -542,7 +539,7 @@ function App() {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   };
 
-  // Generic smooth animation function
+  // CameraControls-compatible animation function
   const animateCamera = useCallback((
     targetAzimuth?: number,
     targetDistance?: number,
@@ -553,148 +550,64 @@ function App() {
     if (!orbitControlsRef.current || animationState.current.isAnimating) return;
 
     const controls = orbitControlsRef.current;
-    const camera = controls.object;
     
-    // Get current values using the correct methods
-    const startAzimuth = controls.getAzimuthalAngle();
-    const startPolar = controls.getPolarAngle();
-    const startDistance = camera.position.distanceTo(controls.target);
+    if (resetToDefault) {
+      // Reset to initial position using CameraControls
+      controls.reset(true);
+      return;
+    }
+
+    // Use CameraControls methods for smooth animations
+    if (targetAzimuth !== undefined) {
+      controls.rotateAzimuthTo(targetAzimuth, true);
+    }
     
-    animationState.current = {
-      isAnimating: true,
-      startTime: performance.now(),
-      duration,
-      startAzimuth,
-      targetAzimuth,
-      startDistance,
-      targetDistance,
-      startPolar,
-      targetPolar
-    };
-
-    const animate = () => {
-      if (!animationState.current.isAnimating) return;
-
-      const elapsed = performance.now() - animationState.current.startTime;
-      const progress = Math.min(elapsed / animationState.current.duration, 1);
-      const easedProgress = easeInOutCubic(progress);
-
-      // Handle reset to default position
-      if (resetToDefault) {
-        // Animate to initial camera position
-        const initialPosition = new THREE.Vector3(-10, 10, -14);
-        const initialTarget = new THREE.Vector3(0, 0, 0);
-        
-        // Lerp the camera position
-        const currentPosition = new THREE.Vector3().lerpVectors(
-          new THREE.Vector3().setFromSphericalCoords(
-            animationState.current.startDistance!,
-            animationState.current.startPolar!,
-            animationState.current.startAzimuth!
-          ).add(controls.target),
-          initialPosition,
-          easedProgress
-        );
-        
-        camera.position.copy(currentPosition);
-        controls.target.lerp(initialTarget, easedProgress);
-      } else {
-        // Animate individual parameters
-        let currentAzimuth = animationState.current.startAzimuth!;
-        let currentPolar = animationState.current.startPolar!;
-        let currentDistance = animationState.current.startDistance!;
-
-        if (animationState.current.targetAzimuth !== undefined) {
-          currentAzimuth = THREE.MathUtils.lerp(
-            animationState.current.startAzimuth!,
-            animationState.current.targetAzimuth,
-            easedProgress
-          );
-        }
-
-        if (animationState.current.targetPolar !== undefined) {
-          currentPolar = THREE.MathUtils.lerp(
-            animationState.current.startPolar!,
-            animationState.current.targetPolar,
-            easedProgress
-          );
-        }
-
-        if (animationState.current.targetDistance !== undefined) {
-          currentDistance = THREE.MathUtils.lerp(
-            animationState.current.startDistance!,
-            animationState.current.targetDistance,
-            easedProgress
-          );
-        }
-
-        // Apply the new position using spherical coordinates
-        const newPosition = new THREE.Vector3().setFromSphericalCoords(
-          currentDistance,
-          currentPolar,
-          currentAzimuth
-        ).add(controls.target);
-
-        camera.position.copy(newPosition);
-      }
-
-      controls.update();
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        animationState.current.isAnimating = false;
-      }
-    };
-
-    animate();
+    if (targetPolar !== undefined) {
+      controls.rotatePolarTo(targetPolar, true);
+    }
+    
+    if (targetDistance !== undefined) {
+      const currentDistance = controls.distance;
+      const dollyAmount = targetDistance / currentDistance;
+      controls.dolly(dollyAmount, true);
+    }
   }, []);
 
-  // Navigation control functions with smooth animations
+  // Navigation control functions with CameraControls
   const handleRotateLeft = useCallback(() => {
-    if (orbitControlsRef.current && !animationState.current.isAnimating) {
+    if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
-      const currentAzimuth = controls.getAzimuthalAngle();
-      const targetAzimuth = currentAzimuth - Math.PI / 8; // 22.5 degrees - more subtle
-      animateCamera(targetAzimuth, undefined, undefined, false, 800);
+      controls.rotate(-Math.PI / 8, 0, true); // 22.5 degrees left
     }
-  }, [animateCamera]);
+  }, []);
 
   const handleRotateRight = useCallback(() => {
-    if (orbitControlsRef.current && !animationState.current.isAnimating) {
+    if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
-      const currentAzimuth = controls.getAzimuthalAngle();
-      const targetAzimuth = currentAzimuth + Math.PI / 8; // 22.5 degrees - more subtle
-      animateCamera(targetAzimuth, undefined, undefined, false, 800);
+      controls.rotate(Math.PI / 8, 0, true); // 22.5 degrees right
     }
-  }, [animateCamera]);
+  }, []);
 
   const handleZoomIn = useCallback(() => {
-    if (orbitControlsRef.current && !animationState.current.isAnimating) {
+    if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
-      const camera = controls.object;
-      const currentDistance = camera.position.distanceTo(controls.target);
-      const targetDistance = Math.max(currentDistance * 0.85, controls.minDistance); // More subtle zoom
-      animateCamera(undefined, targetDistance, undefined, false, 600);
+      controls.dolly(0.85, true); // Zoom in
     }
-  }, [animateCamera]);
+  }, []);
 
   const handleZoomOut = useCallback(() => {
-    if (orbitControlsRef.current && !animationState.current.isAnimating) {
+    if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
-      const camera = controls.object;
-      const currentDistance = camera.position.distanceTo(controls.target);
-      const targetDistance = Math.min(currentDistance * 1.18, controls.maxDistance); // More subtle zoom
-      animateCamera(undefined, targetDistance, undefined, false, 600);
+      controls.dolly(1.18, true); // Zoom out
     }
-  }, [animateCamera]);
+  }, []);
 
   const handleResetView = useCallback(() => {
-    if (orbitControlsRef.current && !animationState.current.isAnimating) {
-      // Reset to initial camera position with smooth animation
-      animateCamera(undefined, undefined, undefined, true, 1500);
+    if (orbitControlsRef.current) {
+      const controls = orbitControlsRef.current;
+      controls.reset(true); // Reset to initial position
     }
-  }, [animateCamera]);
+  }, []);
 
   const handleRequestClick = useCallback(() => {
     setShowRequestForm(true);
@@ -719,16 +632,14 @@ function App() {
     setLoadingProgress(progress);
     
     if (loaded >= total) {
-      // Wait a moment then hide loading screen
-      setTimeout(() => {
-        setModelsLoading(false);
-      }, 200);
+      // Immediately hide loading screen when done
+      setModelsLoading(false);
     }
   }, []);
 
   return (
-    <div style={{ height: '100vh', width: '100vw' }} className="bg-gray-50 flex flex-col overflow-hidden">
-      <div className="flex-1 flex relative">
+    <div style={{ height: '100vh', width: '100vw', position: 'fixed', top: 0, left: 0 }} className="bg-gray-50 flex flex-col overflow-hidden">
+      <div className="flex-1 flex relative" style={{ height: '100%', width: '100%' }}>
 {/* CSV loads in background - only show logo loading screen */}
         
         {modelsLoading && (
@@ -777,54 +688,30 @@ function App() {
         
         
         <Canvas
-          shadows
-          camera={{ position: [-10, 10, -14], fov: 45 }}
-          style={{ background: '#e0e0e0' }}
-          dpr={1} // force 1x pixel ratio for performance
+          shadows={false}
+          camera={{ position: [-10, 10, -14], fov: 40 }}
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            filter: "contrast(1.1) brightness(0.99) saturate(1.0)"
+          }}
           gl={{
-            antialias: false,
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.151,
-            outputColorSpace: THREE.SRGBColorSpace,
-            physicallyCorrectLights: true,
-            shadowMap: {
-              enabled: true,
-              type: THREE.PCFShadowMap, // Better quality but more stable than VSM during movement
-              autoUpdate: false, // Prevent constant shadow updates during camera movement
-            },
             powerPreference: "high-performance"
-          } as any}
+          }}
+          frameloop="always"
         >
-          {/* HDRI-Based Lighting System */}
-          {/* Brighter ambient light for better overall scene brightness */}
-          <ambientLight intensity={0.08} /> {/* Increased from 0.03 for brighter scene */}
+          {/* HDRI-Optimized Lighting System */}
+          <ambientLight intensity={0.27} />
           
-          {/* Lighter fog for brighter appearance */}
-          <fog attach="fog" args={['#f8f9fa', 16, 85]} />
+          {/* Distance-based white vignetting fog */}
+          <fog attach="fog" args={['#ffffff', 15, 60]} />
           
-          {/* Enhanced directional light with better shadow settings */}
+          {/* Key directional light */}
           <directionalLight
             position={[20, 25, 15]}
-            intensity={1.3} // Increased from 1.0 for brighter lighting
+            intensity={0.72}
             color="#ffffff"
-            castShadow
-            shadow-mapSize={[2048, 2048]} // Kept for good performance
-            shadow-camera-far={150}
-            shadow-camera-left={-40}
-            shadow-camera-right={40}
-            shadow-camera-top={40}
-            shadow-camera-bottom={-40}
-            shadow-bias={-0.0001}
-            shadow-normalBias={0.02}
-            shadow-radius={3}
-          />
-          
-          {/* Brighter fill light for better overall illumination */}
-          <directionalLight
-            position={[-10, 12, -5]}
-            intensity={0.25} // Increased from 0.1 for brighter fill
-            color="#ffffff"
-            castShadow={false} // No shadows from fill light
+            castShadow={false}
           />
 
           {/* 3D Scene - Full Environment */}
@@ -847,24 +734,25 @@ function App() {
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* HDRI Environment with your custom HDR */}
-          {/* HDRI environment (safe defaults) */}
+          {/* Kloofendal Clear Sky HDRI Environment */}
           <HDRIErrorBoundary>
-            <React.Suspense fallback={<color attach="background" args={['#87CEEB']} />}>
+            <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
               <Environment
-                files={`${import.meta.env.BASE_URL}textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr`}
-                background={true}                    // Show HDRI as background sky
-                backgroundIntensity={0.65}           // reduced further for less blown reflections
-                environmentIntensity={0.4}           // reduced from 0.6 to fix window reflections
-                backgroundBlurriness={0.06}
-                backgroundRotation={[0, Math.PI * 0.05, 0]}
-                resolution={128}
+                files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
+                background={true}
+                backgroundIntensity={0.45}
+                environmentIntensity={0.54}
+                backgroundBlurriness={0.05}
+                resolution={512}
               />
             </React.Suspense>
           </HDRIErrorBoundary>
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
+          
+          {/* Adaptive Performance Optimization */}
+          <AdaptivePixelRatio />
           
           {/* 3D Scene Popup */}
           <Unit3DPopupOverlay
