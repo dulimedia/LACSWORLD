@@ -12,7 +12,7 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
   const [isSending, setIsSending] = useState(false);
   
   // Get CSV data for live availability updates - use same source as main app
-  const CSV_URL = './unit-data-updated.csv';
+  const CSV_URL = `${import.meta.env.BASE_URL}unit-data-updated.csv`;
   const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
 
   // Generate units structure from CSV data, filtering only available units
