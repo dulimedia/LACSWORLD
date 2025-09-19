@@ -90,7 +90,6 @@ export const SelectedUnitOverlay: React.FC = () => {
         if (hoveredUnitGLB?.object && hoveredUnitGLB.isLoaded) {
           hoveredUnitGLB.object.visible = false;
           unitsToHighlight.push(hoveredUnitGLB);
-        } else {
         }
       } else if (selectedUnit && selectedBuilding && selectedFloor !== null && selectedFloor !== undefined) {
         // Single unit selection (note: selectedFloor can be empty string "" for some buildings)

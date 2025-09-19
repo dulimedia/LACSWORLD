@@ -32,6 +32,12 @@ import { preloadFloorFloorplans } from '../services/floorplanService';
  */
 const filenameToUnitName = (filename: string) => {
   let base = filename.replace(/\.glb$/i, '').trim();
+  
+  // Special case for Studio O.M. - preserve dots for matching with GLB_STRUCTURE
+  if (base.toLowerCase().includes('studio') && base.toLowerCase().includes('o.m')) {
+    return 'Studio O.M.';
+  }
+  
   // Normalize spaces around dashes and remaining spaces
   base = base.replace(/\s*-\s*/g, '-');
   base = base.replace(/\s+/g, '-');
@@ -47,6 +53,7 @@ interface ExploreUnitsPanelProps {
   onClose: () => void;
   onRequest?: (unitKey: string, unitName: string) => void;
   onExpandFloorplan?: (floorplanUrl: string, unitName: string, unitData?: any) => void;
+  onCloseFilters?: () => void;
   pageType?: 'main' | 'events' | 'stages';
 }
 
@@ -150,25 +157,49 @@ const FloorNode: React.FC<FloorNodeProps> = ({
     // Convert unitKey to unit name for the 3D highlighting
     if (unitKey) {
       const unitData = getUnitData(unitKey);
+      
       if (unitData && unitData.unit_name) {
         setHoveredUnit(unitData.unit_name);
+        
+        // Also trigger GLB state hover for 3D scene highlighting
+        const { hoverUnit } = useGLBState.getState();
+        let glbUnitName = unitData.unit_name;
+        
+        // Convert CSV unit name to GLB structure format
+        if (glbUnitName === "Studio O.M") {
+          glbUnitName = "Studio O.M.";
+        }
+        
+        hoverUnit(building, floor, glbUnitName);
       }
     } else {
       setHoveredUnit(null);
+      // Clear GLB hover as well
+      const { hoverUnit } = useGLBState.getState();
+      hoverUnit(null, null, null);
     }
   };
   
   const handleUnitSelect = (unitKey: string) => {
     // Extract unit name from the unit data
     const unitData = getUnitData(unitKey);
+    
     if (unitData) {
       // Call original selection handler
       setSelected(unitKey);
       
       // Update GLB state for 3D visualization (check if camera is not already animating)
       const { isCameraAnimating } = useGLBState.getState();
+      
       if (!isCameraAnimating) {
-        selectUnit(building, floor, unitData.unit_name);
+        let glbUnitName = unitData.unit_name;
+        
+        // Convert CSV unit name to GLB structure format
+        if (glbUnitName === "Studio O.M") {
+          glbUnitName = "Studio O.M.";
+        }
+        
+        selectUnit(building, floor, glbUnitName);
       }
       
       // Navigate to details view if we have the handler
@@ -190,7 +221,7 @@ const FloorNode: React.FC<FloorNodeProps> = ({
   }, [units]);
 
   const availableCount = units.filter(unit => unit.status === true).length;
-  const totalCount = units.length;
+  const totalCount = availableCount; // Only show available units in total
   
   // Preload floorplans when floor is expanded
   useEffect(() => {
@@ -273,10 +304,15 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
       const unitKeys = getUnitsByFloor(building, floor);
       const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
       
-      total += units.length;
+      // Only count available units in total
+      const availableUnits = units.filter(unit => unit.status === true);
+      total += availableUnits.length;
       
       // Apply same filter logic as unitPassesFilters
       units.forEach(unit => {
+        // Only count available units
+        if (unit.status !== true) return;
+        
         const sqft = unit.area_sqft || 0;
         
         if (filters.minSqft !== -1 && sqft < filters.minSqft) return;
@@ -359,6 +395,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   onClose,
   onRequest,
   onExpandFloorplan,
+  onCloseFilters,
   pageType = 'main'
 }) => {
   const exploreState = useExploreState();
@@ -602,7 +639,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   
   
   const buildings = getBuildingList();
-  console.log('🔍 ExploreUnitsPanel: buildings from getBuildingList():', buildings);
   
   // Toggle tree path expansion with smart auto-close behavior
   const toggleExpand = (path: string) => {
@@ -665,9 +701,13 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
 
   // Filter function to check if unit passes current filters
   const unitPassesFilters = useCallback((unitData: UnitRecord | null) => {
-    if (!unitData) return false;
+    // Allow units without data when filters are set to "any size"
+    const showUnitsWithoutData = filters.minSqft === -1 && filters.maxSqft === -1;
+    if (!unitData) {
+      return showUnitsWithoutData;
+    }
     
-    // Always filter out unavailable units
+    // Always filter out unavailable units (but only if we have data)
     if (unitData.status !== true) return false;
     
     // Square footage filter
@@ -691,19 +731,22 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   // Helper function to calculate filtered units for building in dropdown
   const getBuildingFilteredCount = useCallback((buildingName: string): { filteredCount: number; totalCount: number } => {
     const floors = getFloorList(buildingName);
-    const uniqueUnits = new Set<string>();
+    const uniqueAvailableUnits = new Set<string>();
     const filteredUnits = new Set<string>();
     
     floors.forEach(floor => {
       const unitKeys = getUnitsByFloor(buildingName, floor);
       const units = unitKeys.map(key => getUnitData(key)).filter(Boolean) as UnitRecord[];
       
-      // Deduplicate units by their unit_name
+      // Deduplicate units by their unit_name, only count available units
       units.forEach(unit => {
         const unitName = unit.unit_name || unit.name;
         if (!unitName) return;
         
-        uniqueUnits.add(unitName);
+        // Only count available units in total
+        if (unit.status !== true) return;
+        
+        uniqueAvailableUnits.add(unitName);
         
         // Apply same filter logic
         const sqft = unit.area_sqft || 0;
@@ -721,8 +764,16 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       });
     });
     
-    return { filteredCount: filteredUnits.size, totalCount: uniqueUnits.size };
+    return { filteredCount: filteredUnits.size, totalCount: uniqueAvailableUnits.size };
   }, [getFloorList, getUnitsByFloor, getUnitData, filters]);
+
+  // Calculate total filtered units across all buildings
+  const totalFilteredUnits = useMemo(() => {
+    return buildings.reduce((total, building) => {
+      const { filteredCount } = getBuildingFilteredCount(building);
+      return total + filteredCount;
+    }, 0);
+  }, [buildings, getBuildingFilteredCount]);
 
   // Render tree nodes from GLB structure
   const renderGLBNode = (node: TreeNode | string, path: string, parentPath: string[] = []): React.ReactNode => {
@@ -754,11 +805,32 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         }
       }
       
+      // Blacklist of non-unit items that should never be shown (only actual restrooms/utility spaces)
+      const nonUnitKeywords = [
+        'restroom', 'bathroom', 'toilet', 'washroom',
+        'elevator', 'stair', 'mechanical',
+        'utility', 'storage room', 'janitor',
+        'electrical', 'hvac', 'boiler'
+      ];
+      
+      const normalizedDisplayName = displayName.toLowerCase();
+      const isNonUnit = nonUnitKeywords.some(keyword => 
+        normalizedDisplayName.includes(keyword.toLowerCase())
+      );
+      
+      // Always hide non-unit items completely
+      if (isNonUnit) {
+        return null;
+      }
+      
       const isSelected = selectedUnitKey === actualUnitKey || selectedUnitKey === unitName;
       const isAvailable = unitData ? unitData.status === true : false;
 
-      // ALWAYS hide unavailable units completely (never show them in UI)
-      if (!isAvailable) {
+      // Only show units that have CSV data and are available - no showing of units without data
+      const shouldShowUnit = isAvailable;
+
+      // Hide units that are specifically marked as unavailable or don't meet criteria
+      if (!shouldShowUnit) {
         return null;
       }
       
@@ -858,19 +930,31 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               setHoveredUnit(null);
               const { hoverUnit } = useGLBState.getState();
               hoverUnit(null, null, null);
+              
+              // Close filter dropdown when unit is selected
+              if (onCloseFilters) {
+                onCloseFilters();
+              }
             }
           }}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-1">
-              {isAvailable ? (
-                <Circle size={4} className="text-green-500 fill-current" />
+              {unitData ? (
+                isAvailable ? (
+                  <Circle size={4} className="text-green-500 fill-current" />
+                ) : (
+                  <Square size={4} className="text-red-500 fill-current" />
+                )
               ) : (
-                <Square size={4} className="text-red-500 fill-current" />
+                <Circle size={4} className="text-gray-400 fill-current" />
               )}
               <span className={`font-medium truncate ${isSelected ? 'text-blue-800' : ''}`}>
                 {displayName.replace(/\.glb$/i, '')}
               </span>
+              {!unitData && (
+                <span className="text-xs text-gray-400 ml-1">*</span>
+              )}
             </div>
             <div className="flex items-center space-x-1">
               {/* Square footage display removed per user request */}
@@ -1042,10 +1126,14 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <h2 className="text-sm font-semibold text-gray-900">Explore Units</h2>
-            <span className="text-xs text-gray-500">
-              Showing available units only
-            </span>
+            <h2 className="text-sm font-semibold text-gray-900">
+              {currentView === 'details' ? 'Unit Details' : 'Explore Units'}
+            </h2>
+            {currentView === 'explore' && (
+              <span className="text-xs text-gray-500">
+                Showing {totalFilteredUnits} unit{totalFilteredUnits !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -1056,107 +1144,6 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
             <X size={12} className="text-gray-600" />
           </button>
         </div>
-        
-        {/* Compact Filter Section */}
-        <div className="mt-3 space-y-2">
-          {/* Square Footage Filter */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-1">
-              <Sliders size={14} className="text-gray-500" />
-              <span className="text-xs font-medium text-gray-700">Square Footage:</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {/* Min Dropdown */}
-              <div className="space-y-1">
-                <label className="text-xs text-gray-600">Min</label>
-                <select
-                  value={filters.minSqft}
-                  onChange={(e) => {
-                    const newMin = parseInt(e.target.value);
-                    setFilters(prev => ({
-                      ...prev,
-                      minSqft: Math.min(newMin, prev.maxSqft)
-                    }));
-                  }}
-                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                >
-                  {sqftOptions
-                    .filter(opt => filters.maxSqft === -1 || opt.value <= filters.maxSqft || opt.value === -1)
-                    .map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Max Dropdown */}
-              <div className="space-y-1">
-                <label className="text-xs text-gray-600">Max</label>
-                <select
-                  value={filters.maxSqft}
-                  onChange={(e) => {
-                    const newMax = parseInt(e.target.value);
-                    setFilters(prev => ({
-                      ...prev,
-                      maxSqft: Math.max(newMax, prev.minSqft)
-                    }));
-                  }}
-                  className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
-                >
-                  {sqftOptions
-                    .filter(opt => filters.minSqft === -1 || opt.value >= filters.minSqft || opt.value === -1)
-                    .map(option => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          {/* Kitchen Filter */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-1">
-              <Home size={14} className="text-gray-500" />
-              <span className="text-xs font-medium text-gray-700">Kitchen:</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'any' }))}
-                className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
-                  filters.hasKitchen === 'any' 
-                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                Any
-              </button>
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'yes' }))}
-                className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
-                  filters.hasKitchen === 'yes' 
-                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                With Kitchen
-              </button>
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'no' }))}
-                className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
-                  filters.hasKitchen === 'no' 
-                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                No Kitchen
-              </button>
-            </div>
-          </div>
-          
-        </div>
       </div>
 
       {/* Sliding Content Container */}
@@ -1166,30 +1153,133 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           style={{ transform: `translateX(${currentView === 'details' ? '-100%' : '0%'})` }}
         >
           {/* Explore Units Panel - Left side */}
-          <div className="w-full flex-shrink-0 overflow-y-auto">
-            <div className={`h-full transition-opacity duration-300 ${
-              isOpen ? 'opacity-100' : 'opacity-0'
-            }`}>
-          {!tree ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              <div className="text-center">
-                <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                <div className="text-sm">Loading GLB files...</div>
+          <div className="w-full flex-shrink-0 flex flex-col">
+            {/* Filter Section - Now inside the sliding container */}
+            <div className="bg-white bg-opacity-55 backdrop-blur-md border-b border-gray-200 px-4 py-3">
+              <div className="space-y-2">
+                {/* Square Footage Filter */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-1">
+                    <Sliders size={14} className="text-gray-500" />
+                    <span className="text-xs font-medium text-gray-700">Square Footage:</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Min Dropdown */}
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-600">Min</label>
+                      <select
+                        value={filters.minSqft}
+                        onChange={(e) => {
+                          const newMin = parseInt(e.target.value);
+                          setFilters(prev => ({
+                            ...prev,
+                            minSqft: Math.min(newMin, prev.maxSqft)
+                          }));
+                        }}
+                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                      >
+                        {sqftOptions
+                          .filter(opt => filters.maxSqft === -1 || opt.value <= filters.maxSqft || opt.value === -1)
+                          .map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Max Dropdown */}
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-600">Max</label>
+                      <select
+                        value={filters.maxSqft}
+                        onChange={(e) => {
+                          const newMax = parseInt(e.target.value);
+                          setFilters(prev => ({
+                            ...prev,
+                            maxSqft: Math.max(newMax, prev.minSqft)
+                          }));
+                        }}
+                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                      >
+                        {sqftOptions
+                          .filter(opt => filters.minSqft === -1 || opt.value >= filters.minSqft || opt.value === -1)
+                          .map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Kitchen Filter */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-1">
+                    <Home size={14} className="text-gray-500" />
+                    <span className="text-xs font-medium text-gray-700">Kitchen:</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'any' }))}
+                      className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                        filters.hasKitchen === 'any' 
+                          ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      Any
+                    </button>
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'yes' }))}
+                      className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                        filters.hasKitchen === 'yes' 
+                          ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      With Kitchen
+                    </button>
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'no' }))}
+                      className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                        filters.hasKitchen === 'no' 
+                          ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      No Kitchen
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          ) : (
-              <div className="flex flex-col gap-3 p-4 overflow-y-auto">
-                {tree.children && tree.children.map((child, idx) => 
-                  renderGLBNode(
-                    child, 
-                    `${tree.name}/${typeof child === 'string' ? child : child.name}-${idx}`, 
-                    []
-                  )
-                )}
-              </div>
-            )}
+            
+            {/* Units List */}
+            <div className={`flex-1 overflow-y-auto transition-opacity duration-300 ${
+              isOpen ? 'opacity-100' : 'opacity-0'
+            }`}>
+              {!tree ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="text-center">
+                    <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <div className="text-sm">Loading GLB files...</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3 p-4">
+                  {tree.children && tree.children.map((child, idx) => 
+                    renderGLBNode(
+                      child, 
+                      `${tree.name}/${typeof child === 'string' ? child : child.name}-${idx}`, 
+                      []
+                    )
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
         {/* Details Panel - Right side */}
         <div className="w-full flex-shrink-0 overflow-y-auto">

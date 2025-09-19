@@ -69,14 +69,14 @@ export interface GLBState {
 
 // GLB file structure mapping based on the actual file system (exact match)
 const GLB_STRUCTURE = {
-  "First Street Building": {
-    "Gound Floor": ["F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
-    "First Floor": ["F-100", "F-105", "F-110 CR", "F-115", "F-140", "F-150", "F-160", "F-170", "F-175", "F-180 ", "F-185", "F-187", "F-190", "F1 Restrooms"],
+  "Fifth Street Building": {
+    "Ground Floor": ["F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
+    "First Floor": ["F-100", "F-105", "F-110 CR", "F-115", "F-140", "F-150", "F-160", "F-170", "F-175", "F-180", "F-185", "F-187", "F-190", "F1 Restrooms"],
     "Second Floor": ["F-200", "F-240", "F-250", "F-280", "F-290", "F2 Restrooms"],
     "Third Floor": ["F-300", "F-330", "F-340", "F-350", "F-360", "F-363", "F-365", "F-380", "F3 Restrooms"]
   },
   "Maryland Building": {
-    "Ground Floor": ["ET Lab", "M-20", "M-40", "M-45", "M-50", "MG - Stage 7", "Studio O.M."],
+    "Ground Floor": ["ET Lab", "M-20", "M-40", "M-45", "M-50", "MG - Stage 7 ", "Studio O.M."],
     "First Floor": ["M-120", "M-130", "M-140", "M-145", "M-150", "M-160", "M-170", "M-180", "M1 Restrooms"],
     "Second Floor": ["M-210", "M-220", "M-230", "M-240", "M-250", "M-260", "M-270", "M2 Restroom"],
     "Third Floor": ["M-300", "M-320", "M-340", "M-345", "M-350", "M3 Restroom"]
@@ -126,9 +126,10 @@ export const useGLBState = create<GLBState>((set, get) => ({
           } else {
             // Handle empty floor strings to avoid double slashes
             const floorPath = floor ? `/${floor}` : '';
-            // For First Street Building, check if we need trailing space for F-180
-            const fileUnit = (building === "First Street Building" && unit === "F-180") ? "F-180 " :
-                           (building === "Maryland Building" && unit === "MG - Stage 7") ? "MG - Stage 7 " : unit;
+            // For Fifth Street Building, check if we need trailing space for F-180
+            const fileUnit = (building === "Fifth Street Building" && unit === "F-180") ? "F-180 " :
+                           (building === "Maryland Building" && unit === "MG - Stage 7") ? "MG - Stage 7 " :
+                           (building === "Maryland Building" && unit === "Studio O.M.") ? "Studio O.M." : unit;
             path = import.meta.env.BASE_URL + `models/boxes/${building}${floorPath}/${fileUnit}.glb`;
           }
           
@@ -142,6 +143,8 @@ export const useGLBState = create<GLBState>((set, get) => ({
             state: 'invisible', // Default state - units are always invisible
             isLoaded: false
           });
+          
+          
           total++;
         });
       });
@@ -286,6 +289,8 @@ export const useGLBState = create<GLBState>((set, get) => ({
       } else {
         key = `${building}/${floor}/${unit}`;
       }
+      
+      const foundNode = glbNodes.get(key);
       
       // Set hover state
       set({ hoveredUnit: key });

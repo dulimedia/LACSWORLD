@@ -925,6 +925,10 @@ function App() {
             setShowSingleUnitRequest(true);
           }}
           onExpandFloorplan={handleExpandFloorplan}
+          onCloseFilters={() => {
+            setIsFilterDropdownOpen(false);
+            setIsTopFilterDropdownOpen(false);
+          }}
         />
 
         
