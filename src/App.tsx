@@ -3,7 +3,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CameraControls, Environment } from '@react-three/drei';
 import { detectDevice, getMobileOptimizedSettings } from './utils/deviceDetection';
 import { MobileMemoryManager } from './utils/memoryManager';
-import { MobileLoadingScreen } from './components/MobileLoadingScreen';
 import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
 import { UnitWarehouse } from './components/UnitWarehouse';
 import UnitDetailPopup from './components/UnitDetailPopup';
@@ -339,34 +338,11 @@ function App() {
       const memoryManager = MobileMemoryManager.getInstance();
       memoryManager.startMemoryMonitoring();
       
-      // Safari-specific visibility handling to prevent crashes
-      if (deviceCapabilities.isSafari) {
-        const handleVisibilityChange = () => {
-          if (document.hidden) {
-            setModelsLoading(true); // Pause rendering when hidden
-          } else {
-            // Resume after a brief delay to prevent race conditions
-            setTimeout(() => setModelsLoading(false), 100);
-          }
-        };
-        
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('pagehide', () => setModelsLoading(true));
-        window.addEventListener('pageshow', () => setModelsLoading(false));
-        
-        return () => {
-          memoryManager.stopMemoryMonitoring();
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          window.removeEventListener('pagehide', () => setModelsLoading(true));
-          window.removeEventListener('pageshow', () => setModelsLoading(false));
-        };
-      }
-      
       return () => {
         memoryManager.stopMemoryMonitoring();
       };
     }
-  }, [deviceCapabilities.isMobile, deviceCapabilities.isSafari]);
+  }, [deviceCapabilities.isMobile]);
   
   // Connect camera controls to GLB state for smooth centering
   useEffect(() => {
@@ -397,16 +373,15 @@ function App() {
 
   // Debug logging for loading states
   
-  // Safari-specific loading timeout - shorter to prevent crashes
+  // Fallback: hide loading screen after 8 seconds if models never report completion
   useEffect(() => {
-    const timeoutDuration = deviceCapabilities.isSafari && deviceCapabilities.isMobile ? 5000 : 8000;
     const fallbackTimer = setTimeout(() => {
       console.log('Loading timeout reached, forcing load completion');
       setModelsLoading(false);
-    }, timeoutDuration);
+    }, 8000);
     
     return () => clearTimeout(fallbackTimer);
-  }, [deviceCapabilities.isSafari, deviceCapabilities.isMobile]);
+  }, []);
 
   // Handle window resize for proper canvas resizing
   useEffect(() => {
@@ -680,16 +655,10 @@ function App() {
     setLoadingProgress(progress);
     
     if (loaded >= total) {
-      // Safari mobile: Add small delay to ensure WebGL context is ready
-      if (deviceCapabilities.isSafari && deviceCapabilities.isMobile) {
-        setTimeout(() => {
-          setModelsLoading(false);
-        }, 500);
-      } else {
-        setModelsLoading(false);
-      }
+      // Immediately hide loading screen when done
+      setModelsLoading(false);
     }
-  }, [deviceCapabilities.isSafari, deviceCapabilities.isMobile]);
+  }, []);
 
   return (
     <SafariErrorBoundary>
@@ -698,46 +667,41 @@ function App() {
 {/* CSV loads in background - only show logo loading screen */}
         
         {modelsLoading && (
-          <>
-            <MobileLoadingScreen progress={loadingProgress} isMobile={deviceCapabilities.isMobile} />
-            {!deviceCapabilities.isMobile && (
-              <div className="absolute inset-0 flex justify-center items-center z-30" 
-                   style={{ 
-                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                     backdropFilter: 'blur(10px)'
-                   }}>
-                <div className="text-center text-white">
-                  
-                  {/* LA Center Studios Logo */}
-                  <div className="mb-8">
-                    <img 
-                      src={import.meta.env.BASE_URL + "textures/la center studios logo.png"} 
-                      alt="LA Center Studios" 
-                      className="mx-auto mb-4 max-w-xs h-auto opacity-90"
-                      style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
-                    />
-                  </div>
-                  
-                  {/* Loading Progress */}
-                  <div className="mb-6">
-                    <div className="bg-white bg-opacity-20 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
-                      <div 
-                        className="bg-white h-full rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${loadingProgress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  {/* Animated dots */}
-                  <div className="flex justify-center space-x-2">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                  </div>
+          <div className="absolute inset-0 flex justify-center items-center z-30" 
+               style={{ 
+                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                 backdropFilter: 'blur(10px)'
+               }}>
+            <div className="text-center text-white">
+              
+              {/* LA Center Studios Logo */}
+              <div className="mb-8">
+                <img 
+                  src={import.meta.env.BASE_URL + "textures/la center studios logo.png"} 
+                  alt="LA Center Studios" 
+                  className="mx-auto mb-4 max-w-xs h-auto opacity-90"
+                  style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+                />
+              </div>
+              
+              {/* Loading Progress */}
+              <div className="mb-6">
+                <div className="bg-white bg-opacity-20 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
+                  <div 
+                    className="bg-white h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${loadingProgress}%` }}
+                  ></div>
                 </div>
               </div>
-            )}
-          </>
+              
+              {/* Animated dots */}
+              <div className="flex justify-center space-x-2">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+              </div>
+            </div>
+          </div>
         )}
         
         {error && (
@@ -748,53 +712,23 @@ function App() {
         
         
         <Canvas
-          shadows={mobileSettings.shadows}
+          shadows={true}
           camera={{ position: [-10, 10, -14], fov: 40 }}
           style={{ 
             width: '100%', 
             height: '100%',
-            filter: deviceCapabilities.isMobile ? "none" : "contrast(1.1) brightness(0.99) saturate(1.0)"
+            filter: "contrast(1.1) brightness(0.99) saturate(1.0)"
           }}
-          dpr={mobileSettings.pixelRatio}
+          dpr={Math.min(window.devicePixelRatio, 2)}
           gl={{
-            powerPreference: deviceCapabilities.isMobile ? "low-power" : "high-performance",
-            antialias: mobileSettings.antialias,
+            powerPreference: "high-performance",
+            antialias: true,
             alpha: false,
             preserveDrawingBuffer: false,
-            failIfMajorPerformanceCaveat: deviceCapabilities.isSafari && deviceCapabilities.isMobile,
             stencil: false,
-            depth: true,
-            // Safari-specific optimizations
-            ...(deviceCapabilities.isSafari && deviceCapabilities.isMobile && {
-              premultipliedAlpha: false,
-              desynchronized: true, // Reduce input lag on Safari
-              powerPreference: "low-power"
-            })
+            depth: true
           }}
-          frameloop={deviceCapabilities.isSafari && deviceCapabilities.isMobile ? "demand" : "always"}
-          onCreated={({ gl, scene, camera }) => {
-            // Safari mobile specific optimizations
-            if (deviceCapabilities.isSafari && deviceCapabilities.isMobile) {
-              gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-              gl.outputColorSpace = 'srgb';
-              
-              // Enable WebGL extensions for better compatibility
-              const extensions = [
-                'OES_element_index_uint',
-                'WEBGL_depth_texture',
-                'OES_texture_float',
-                'OES_texture_half_float'
-              ];
-              
-              extensions.forEach(ext => {
-                try {
-                  gl.getExtension(ext);
-                } catch (e) {
-                  console.warn(`WebGL extension ${ext} not available`);
-                }
-              });
-            }
-          }}
+          frameloop="always"
         >
           {/* HDRI-Optimized Lighting System */}
           <ambientLight intensity={0.27} />
@@ -830,24 +764,19 @@ function App() {
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* Kloofendal Clear Sky HDRI Environment - Disabled on mobile for performance */}
-          {!deviceCapabilities.isMobile ? (
-            <HDRIErrorBoundary>
-              <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
-                <Environment
-                  files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
-                  background={true}
-                  backgroundIntensity={0.45}
-                  environmentIntensity={0.54}
-                  backgroundBlurriness={0.05}
-                  resolution={512}
-                />
-              </React.Suspense>
-            </HDRIErrorBoundary>
-          ) : (
-            /* Simple background color for mobile */
-            <color attach="background" args={['#E6F3FF']} />
-          )}
+          {/* Kloofendal Clear Sky HDRI Environment - Same for all devices */}
+          <HDRIErrorBoundary>
+            <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
+              <Environment
+                files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
+                background={true}
+                backgroundIntensity={0.45}
+                environmentIntensity={0.54}
+                backgroundBlurriness={0.05}
+                resolution={512}
+              />
+            </React.Suspense>
+          </HDRIErrorBoundary>
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
@@ -875,141 +804,49 @@ function App() {
         
 
         
-        {/* Bottom Controls - Hidden during loading */}
+        {/* Bottom Controls - Identical desktop layout for all devices */}
         {!modelsLoading && (
-          <>
-            {/* Desktop Layout - Bottom Bar */}
-            <div className="fixed bottom-6 left-6 right-6 z-40 flex justify-between items-end hidden sm:flex">
-              {/* Explore Units Button - Bottom Left */}
+          <div className="fixed bottom-6 left-6 right-6 z-40 flex justify-between items-end">
+            {/* Explore Units Button - Bottom Left */}
+            <button
+              onClick={handleToggleExploreDrawer}
+              className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+            >
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-sm">Explore Units</span>
+              {drawerOpen ? (
+                <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              ) : (
+                <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </button>
+
+            {/* Center Controls */}
+            <div className="flex items-center space-x-3">
+              {/* Request Button */}
               <button
-                onClick={handleToggleExploreDrawer}
-                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+                onClick={handleRequestClick}
+                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
+                title="Submit a request"
               >
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm">Explore Units</span>
-                {drawerOpen ? (
-                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                ) : (
-                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
+                <MessageCircle size={16} className="text-gray-600" />
+                <span className="text-sm">Request</span>
               </button>
-
-              {/* Center Controls */}
-              <div className="flex items-center space-x-3">
-                {/* Request Button */}
-                <button
-                  onClick={handleRequestClick}
-                  className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
-                  title="Submit a request"
-                >
-                  <MessageCircle size={16} className="text-gray-600" />
-                  <span className="text-sm">Request</span>
-                </button>
-              </div>
-
-              {/* Camera Controls - Bottom Right */}
-              <NavigationControls
-                onRotateLeft={handleRotateLeft}
-                onRotateRight={handleRotateRight}
-                onZoomIn={handleZoomIn}
-                onZoomOut={handleZoomOut}
-                onResetView={handleResetView}
-              />
             </div>
 
-            {/* Mobile Layout - Vertical Stack on Right */}
-            <div className="block sm:hidden">
-              <div className="fixed top-4 right-2 z-40 flex flex-col space-y-2">
-                {/* Explore Units - Top */}
-                <button
-                  onClick={handleToggleExploreDrawer}
-                  className="flex flex-col items-center justify-center w-16 h-12 text-gray-700 bg-white bg-opacity-90 
-                             backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 hover:bg-opacity-100 
-                             transition-all duration-300 touch-manipulation"
-                  title="Explore Units"
-                >
-                  <Building size={14} className="text-gray-600" />
-                  <span className="text-xs font-medium mt-0.5">Explore</span>
-                </button>
-
-                {/* Request Button - Middle */}
-                <button
-                  onClick={handleRequestClick}
-                  className="flex flex-col items-center justify-center w-16 h-12 bg-blue-600 hover:bg-blue-700 
-                            text-white rounded-lg shadow-lg transition-all duration-300 
-                            hover:shadow-xl active:scale-95 touch-manipulation"
-                  title="Request Info"
-                >
-                  <MessageCircle size={14} className="text-white" />
-                  <span className="text-xs font-medium mt-0.5">Request</span>
-                </button>
-              </div>
-
-              {/* Camera Controls - Bottom Right (Compact) */}
-              <div className="fixed bottom-4 right-2 z-40">
-                <div className="bg-white bg-opacity-55 backdrop-blur-md rounded-lg shadow-lg border border-white border-opacity-50 p-1.5">
-                  <div className="grid grid-cols-3 gap-1">
-                    <button
-                      onClick={handleRotateLeft}
-                      className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 
-                                 border border-blue-200 rounded-md transition-all duration-200 
-                                 hover:shadow-md active:scale-95 touch-manipulation"
-                      title="Rotate Left"
-                    >
-                      <RotateCcw size={12} className="text-blue-600" />
-                    </button>
-                    
-                    <button
-                      onClick={handleZoomIn}
-                      className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 
-                                 border border-green-200 rounded-md transition-all duration-200 
-                                 hover:shadow-md active:scale-95 touch-manipulation"
-                      title="Zoom In"
-                    >
-                      <ZoomIn size={12} className="text-green-600" />
-                    </button>
-                    
-                    <button
-                      onClick={handleRotateRight}
-                      className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 
-                                 border border-blue-200 rounded-md transition-all duration-200 
-                                 hover:shadow-md active:scale-95 touch-manipulation"
-                      title="Rotate Right"
-                    >
-                      <RotateCw size={12} className="text-blue-600" />
-                    </button>
-                    
-                    <button
-                      onClick={handleZoomOut}
-                      className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 
-                                 border border-green-200 rounded-md transition-all duration-200 
-                                 hover:shadow-md active:scale-95 touch-manipulation"
-                      title="Zoom Out"
-                    >
-                      <ZoomOut size={12} className="text-green-600" />
-                    </button>
-                    
-                    <button
-                      onClick={handleResetView}
-                      className="flex items-center justify-center w-7 h-7 bg-gray-50 hover:bg-gray-100 
-                                 border border-gray-200 rounded-md transition-all duration-200 
-                                 hover:shadow-md active:scale-95 touch-manipulation col-span-1"
-                      title="Reset View"
-                    >
-                      <Home size={12} className="text-gray-600" />
-                    </button>
-                    
-                    {/* Empty space for grid alignment */}
-                    <div></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
+            {/* Camera Controls - Bottom Right */}
+            <NavigationControls
+              onRotateLeft={handleRotateLeft}
+              onRotateRight={handleRotateRight}
+              onZoomIn={handleZoomIn}
+              onZoomOut={handleZoomOut}
+              onResetView={handleResetView}
+            />
+          </div>
         )}
 
 

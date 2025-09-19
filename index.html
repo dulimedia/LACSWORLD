@@ -3,73 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1f2937" />
-    <meta name="format-detection" content="telephone=no" />
-    <meta name="apple-touch-fullscreen" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="LA Center 3D" />
     <title>3D Warehouse Visualization</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      /* Mobile-specific styles */
-      @media (max-width: 768px) {
-        html, body {
-          height: 100vh;
-          overflow: hidden;
-          position: fixed;
-          width: 100vw;
-          -webkit-overflow-scrolling: touch;
-        }
-        
-        /* Prevent pull-to-refresh */
-        body {
-          overscroll-behavior-y: contain;
-        }
-        
-        /* Better touch targets */
-        .touch-manipulation {
-          touch-action: manipulation;
-        }
-        
-        /* Prevent text selection during touch */
-        .no-select {
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
-          user-select: none;
-          -webkit-touch-callout: none;
-        }
+      /* Basic mobile styles */
+      html, body {
+        height: 100vh;
+        overflow: hidden;
+        width: 100vw;
       }
       
-      /* Safari-specific optimizations */
-      @supports (-webkit-touch-callout: none) {
-        /* This targets Safari */
-        * {
-          -webkit-backface-visibility: hidden;
-          -webkit-transform: translateZ(0);
-        }
-        
-        canvas {
-          -webkit-transform: translateZ(0);
-          transform: translateZ(0);
-        }
-        
-        /* Prevent Safari zoom on input focus */
-        input, textarea, select {
-          font-size: 16px !important;
-        }
-        
-        /* Force GPU acceleration for better performance */
-        .gpu-accelerated {
-          -webkit-transform: translateZ(0);
-          transform: translateZ(0);
-          will-change: transform;
-        }
+      /* Prevent text selection during touch */
+      .no-select {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
     </style>
   </head>
