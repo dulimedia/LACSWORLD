@@ -21,6 +21,7 @@ import { NavigationControls } from './components/NavigationControls';
 import { FilterDropdown } from './components/FilterDropdown';
 import { HoverToast } from './ui/HoverToast';
 import { UnitHoverPreview } from './components/UnitHoverPreview';
+import { SafariErrorBoundary } from './components/SafariErrorBoundary';
 import { useUnitStore } from './stores/useUnitStore';
 import { useExploreState, buildUnitsIndex, type UnitRecord } from './store/exploreState';
 import { useGLBState } from './store/glbState';
@@ -338,11 +339,34 @@ function App() {
       const memoryManager = MobileMemoryManager.getInstance();
       memoryManager.startMemoryMonitoring();
       
+      // Safari-specific visibility handling to prevent crashes
+      if (deviceCapabilities.isSafari) {
+        const handleVisibilityChange = () => {
+          if (document.hidden) {
+            setModelsLoading(true); // Pause rendering when hidden
+          } else {
+            // Resume after a brief delay to prevent race conditions
+            setTimeout(() => setModelsLoading(false), 100);
+          }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pagehide', () => setModelsLoading(true));
+        window.addEventListener('pageshow', () => setModelsLoading(false));
+        
+        return () => {
+          memoryManager.stopMemoryMonitoring();
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          window.removeEventListener('pagehide', () => setModelsLoading(true));
+          window.removeEventListener('pageshow', () => setModelsLoading(false));
+        };
+      }
+      
       return () => {
         memoryManager.stopMemoryMonitoring();
       };
     }
-  }, [deviceCapabilities.isMobile]);
+  }, [deviceCapabilities.isMobile, deviceCapabilities.isSafari]);
   
   // Connect camera controls to GLB state for smooth centering
   useEffect(() => {
@@ -373,14 +397,16 @@ function App() {
 
   // Debug logging for loading states
   
-  // Fallback: hide loading screen after 8 seconds if models never report completion
+  // Safari-specific loading timeout - shorter to prevent crashes
   useEffect(() => {
+    const timeoutDuration = deviceCapabilities.isSafari && deviceCapabilities.isMobile ? 5000 : 8000;
     const fallbackTimer = setTimeout(() => {
+      console.log('Loading timeout reached, forcing load completion');
       setModelsLoading(false);
-    }, 8000);
+    }, timeoutDuration);
     
     return () => clearTimeout(fallbackTimer);
-  }, []);
+  }, [deviceCapabilities.isSafari, deviceCapabilities.isMobile]);
 
   // Handle window resize for proper canvas resizing
   useEffect(() => {
@@ -654,14 +680,21 @@ function App() {
     setLoadingProgress(progress);
     
     if (loaded >= total) {
-      // Immediately hide loading screen when done
-      setModelsLoading(false);
+      // Safari mobile: Add small delay to ensure WebGL context is ready
+      if (deviceCapabilities.isSafari && deviceCapabilities.isMobile) {
+        setTimeout(() => {
+          setModelsLoading(false);
+        }, 500);
+      } else {
+        setModelsLoading(false);
+      }
     }
-  }, []);
+  }, [deviceCapabilities.isSafari, deviceCapabilities.isMobile]);
 
   return (
-    <div style={{ height: '100vh', width: '100vw', position: 'fixed', top: 0, left: 0 }} className="bg-gray-50 flex flex-col overflow-hidden">
-      <div className="flex-1 flex relative" style={{ height: '100%', width: '100%' }}>
+    <SafariErrorBoundary>
+      <div style={{ height: '100vh', width: '100vw', position: 'fixed', top: 0, left: 0 }} className="bg-gray-50 flex flex-col overflow-hidden">
+        <div className="flex-1 flex relative" style={{ height: '100%', width: '100%' }}>
 {/* CSV loads in background - only show logo loading screen */}
         
         {modelsLoading && (
@@ -726,13 +759,42 @@ function App() {
           gl={{
             powerPreference: deviceCapabilities.isMobile ? "low-power" : "high-performance",
             antialias: mobileSettings.antialias,
-            alpha: false, // Disable transparency for better performance
-            preserveDrawingBuffer: false, // Prevent memory leaks on mobile
-            failIfMajorPerformanceCaveat: deviceCapabilities.isIOS, // Fail gracefully on low-end iOS devices
-            stencil: false, // Disable stencil buffer on mobile
-            depth: true
+            alpha: false,
+            preserveDrawingBuffer: false,
+            failIfMajorPerformanceCaveat: deviceCapabilities.isSafari && deviceCapabilities.isMobile,
+            stencil: false,
+            depth: true,
+            // Safari-specific optimizations
+            ...(deviceCapabilities.isSafari && deviceCapabilities.isMobile && {
+              premultipliedAlpha: false,
+              desynchronized: true, // Reduce input lag on Safari
+              powerPreference: "low-power"
+            })
           }}
-          frameloop="always"
+          frameloop={deviceCapabilities.isSafari && deviceCapabilities.isMobile ? "demand" : "always"}
+          onCreated={({ gl, scene, camera }) => {
+            // Safari mobile specific optimizations
+            if (deviceCapabilities.isSafari && deviceCapabilities.isMobile) {
+              gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+              gl.outputColorSpace = 'srgb';
+              
+              // Enable WebGL extensions for better compatibility
+              const extensions = [
+                'OES_element_index_uint',
+                'WEBGL_depth_texture',
+                'OES_texture_float',
+                'OES_texture_half_float'
+              ];
+              
+              extensions.forEach(ext => {
+                try {
+                  gl.getExtension(ext);
+                } catch (e) {
+                  console.warn(`WebGL extension ${ext} not available`);
+                }
+              });
+            }
+          }}
         >
           {/* HDRI-Optimized Lighting System */}
           <ambientLight intensity={0.27} />
@@ -1050,7 +1112,8 @@ function App() {
           isVisible={true}
         />
       )}
-    </div>
+      </div>
+    </SafariErrorBoundary>
   );
 }
 

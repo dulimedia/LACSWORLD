@@ -10,8 +10,18 @@ export const MobileLoadingScreen: React.FC<MobileLoadingScreenProps> = ({ progre
     return null; // Use the regular loading screen on desktop
   }
 
+  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
   return (
-    <div className="absolute inset-0 flex flex-col justify-center items-center z-30 bg-gray-50">
+    <div className="absolute inset-0 flex flex-col justify-center items-center z-30 bg-gray-50" 
+         style={{
+           // Safari-specific optimizations to prevent crashes
+           ...(isSafari && {
+             transform: 'translateZ(0)', // Force hardware acceleration
+             backfaceVisibility: 'hidden',
+             perspective: '1000px'
+           })
+         }}>
       {/* Simple logo without animations for mobile */}
       <div className="mb-8">
         <div className="w-24 h-24 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -45,7 +55,17 @@ export const MobileLoadingScreen: React.FC<MobileLoadingScreenProps> = ({ progre
       {/* Mobile-specific optimization tip */}
       {progress < 50 && (
         <div className="mt-6 text-center text-xs text-gray-500 max-w-xs">
-          Tip: For best performance on mobile, close other browser tabs
+          {isSafari ? 
+            "Safari detected: Optimizing for best performance..." : 
+            "Tip: For best performance on mobile, close other browser tabs"
+          }
+        </div>
+      )}
+      
+      {/* Safari-specific warning if loading is slow */}
+      {isSafari && progress < 30 && (
+        <div className="mt-4 text-center text-xs text-orange-600 max-w-xs">
+          Loading may take longer on Safari. Please wait...
         </div>
       )}
     </div>
