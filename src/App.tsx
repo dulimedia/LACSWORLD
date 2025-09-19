@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CameraControls, Environment } from '@react-three/drei';
+import { detectDevice, getMobileOptimizedSettings } from './utils/deviceDetection';
+import { MobileMemoryManager } from './utils/memoryManager';
+import { MobileLoadingScreen } from './components/MobileLoadingScreen';
 import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
 import { UnitWarehouse } from './components/UnitWarehouse';
 import UnitDetailPopup from './components/UnitDetailPopup';
@@ -325,6 +328,22 @@ function App() {
   // Camera controls ref for navigation
   const orbitControlsRef = useRef<any>(null);
   
+  // Mobile device detection and optimization settings
+  const deviceCapabilities = useMemo(() => detectDevice(), []);
+  const mobileSettings = useMemo(() => getMobileOptimizedSettings(deviceCapabilities), [deviceCapabilities]);
+  
+  // Initialize memory manager for mobile devices
+  useEffect(() => {
+    if (deviceCapabilities.isMobile) {
+      const memoryManager = MobileMemoryManager.getInstance();
+      memoryManager.startMemoryMonitoring();
+      
+      return () => {
+        memoryManager.stopMemoryMonitoring();
+      };
+    }
+  }, [deviceCapabilities.isMobile]);
+  
   // Connect camera controls to GLB state for smooth centering
   useEffect(() => {
     setCameraControlsRef(orbitControlsRef);
@@ -646,41 +665,46 @@ function App() {
 {/* CSV loads in background - only show logo loading screen */}
         
         {modelsLoading && (
-          <div className="absolute inset-0 flex justify-center items-center z-30" 
-               style={{ 
-                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                 backdropFilter: 'blur(10px)'
-               }}>
-            <div className="text-center text-white">
-              
-              {/* LA Center Studios Logo */}
-              <div className="mb-8">
-                <img 
-                  src={import.meta.env.BASE_URL + "textures/la center studios logo.png"} 
-                  alt="LA Center Studios" 
-                  className="mx-auto mb-4 max-w-xs h-auto opacity-90"
-                  style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
-                />
-              </div>
-              
-              {/* Loading Progress */}
-              <div className="mb-6">
-                <div className="bg-white bg-opacity-20 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
-                  <div 
-                    className="bg-white h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${loadingProgress}%` }}
-                  ></div>
+          <>
+            <MobileLoadingScreen progress={loadingProgress} isMobile={deviceCapabilities.isMobile} />
+            {!deviceCapabilities.isMobile && (
+              <div className="absolute inset-0 flex justify-center items-center z-30" 
+                   style={{ 
+                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                     backdropFilter: 'blur(10px)'
+                   }}>
+                <div className="text-center text-white">
+                  
+                  {/* LA Center Studios Logo */}
+                  <div className="mb-8">
+                    <img 
+                      src={import.meta.env.BASE_URL + "textures/la center studios logo.png"} 
+                      alt="LA Center Studios" 
+                      className="mx-auto mb-4 max-w-xs h-auto opacity-90"
+                      style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+                    />
+                  </div>
+                  
+                  {/* Loading Progress */}
+                  <div className="mb-6">
+                    <div className="bg-white bg-opacity-20 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
+                      <div 
+                        className="bg-white h-full rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${loadingProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Animated dots */}
+                  <div className="flex justify-center space-x-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                  </div>
                 </div>
               </div>
-              
-              {/* Animated dots */}
-              <div className="flex justify-center space-x-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-              </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
         
         {error && (
@@ -691,15 +715,22 @@ function App() {
         
         
         <Canvas
-          shadows={false}
+          shadows={mobileSettings.shadows}
           camera={{ position: [-10, 10, -14], fov: 40 }}
           style={{ 
             width: '100%', 
             height: '100%',
-            filter: "contrast(1.1) brightness(0.99) saturate(1.0)"
+            filter: deviceCapabilities.isMobile ? "none" : "contrast(1.1) brightness(0.99) saturate(1.0)"
           }}
+          dpr={mobileSettings.pixelRatio}
           gl={{
-            powerPreference: "high-performance"
+            powerPreference: deviceCapabilities.isMobile ? "low-power" : "high-performance",
+            antialias: mobileSettings.antialias,
+            alpha: false, // Disable transparency for better performance
+            preserveDrawingBuffer: false, // Prevent memory leaks on mobile
+            failIfMajorPerformanceCaveat: deviceCapabilities.isIOS, // Fail gracefully on low-end iOS devices
+            stencil: false, // Disable stencil buffer on mobile
+            depth: true
           }}
           frameloop="always"
         >
@@ -737,19 +768,24 @@ function App() {
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* Kloofendal Clear Sky HDRI Environment */}
-          <HDRIErrorBoundary>
-            <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
-              <Environment
-                files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
-                background={true}
-                backgroundIntensity={0.45}
-                environmentIntensity={0.54}
-                backgroundBlurriness={0.05}
-                resolution={512}
-              />
-            </React.Suspense>
-          </HDRIErrorBoundary>
+          {/* Kloofendal Clear Sky HDRI Environment - Disabled on mobile for performance */}
+          {!deviceCapabilities.isMobile ? (
+            <HDRIErrorBoundary>
+              <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
+                <Environment
+                  files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
+                  background={true}
+                  backgroundIntensity={0.45}
+                  environmentIntensity={0.54}
+                  backgroundBlurriness={0.05}
+                  resolution={512}
+                />
+              </React.Suspense>
+            </HDRIErrorBoundary>
+          ) : (
+            /* Simple background color for mobile */
+            <color attach="background" args={['#E6F3FF']} />
+          )}
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
