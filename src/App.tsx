@@ -166,8 +166,8 @@ export const FALLBACK_UNIT_DATA = {
   'stage f': { name: 'stage f', size: '8,200 sq ft', availability: 'Occupied', amenities: 'Full service production stage' },
   'stage 7': { name: 'stage 7', size: '7,800 sq ft', availability: 'Available', amenities: 'Professional production stage' },
   'stage 8': { name: 'stage 8', size: '8,400 sq ft', availability: 'Available', amenities: 'Large production facility' },
-  'mg - stage 7': { name: 'mg - stage 7', size: '6,500 sq ft', availability: 'Available', amenities: 'Mezzanine stage area' },
-  'studio o.m.': { name: 'studio o.m.', size: '5,000 sq ft', availability: 'Occupied', amenities: 'Private studio space' },
+  'mg - stage 7': { name: 'mg - stage 7', size: '6,500 sq ft', availability: 'Available', amenities: 'Mezzanine stage area', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/LACS_Site Map_M1_Color_page_1.png' },
+  'studio o.m.': { name: 'studio o.m.', size: '5,000 sq ft', availability: 'Occupied', amenities: 'Private studio space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/LACS_Site Map_M1_Color_page_1.png' },
   'mill 2': { name: 'mill 2', size: '4,500 sq ft', availability: 'Available', amenities: 'Mill building workspace' },
   'mill 3': { name: 'mill 3', size: '4,800 sq ft', availability: 'Available', amenities: 'Large mill workspace' },
   'mill 3 office': { name: 'mill 3 office', size: '1,200 sq ft', availability: 'Available', amenities: 'Office space in mill building' },
@@ -207,24 +207,16 @@ const CameraController: React.FC<{
   controlsRef: React.RefObject<any>;
 }> = ({ controlsRef }) => {
   useEffect(() => {
-    console.log('📷 CameraController mounted, controlsRef:', {
-      hasRef: !!controlsRef,
-      hasCurrent: !!controlsRef?.current,
-      currentType: typeof controlsRef?.current
-    });
-    
-    // Set up a timer to check when the controls are ready
+    // Simplified camera controller initialization without verbose logging
     const checkControls = () => {
       if (controlsRef?.current) {
-        console.log('📷 CameraControls ready!', controlsRef.current);
         return true;
       }
       return false;
     };
     
-    // Check immediately
+    // Check immediately, then once more after delay if needed
     if (!checkControls()) {
-      // Check again after a short delay
       const timeout = setTimeout(() => {
         checkControls();
       }, 100);
@@ -359,45 +351,93 @@ function App() {
   const deviceCapabilities = useMemo(() => detectDevice(), []);
   const mobileSettings = useMemo(() => getMobileOptimizedSettings(deviceCapabilities), [deviceCapabilities]);
   
+  // Create mobile-optimized GL configuration
+  const glConfig = useMemo(() => {
+    if (deviceCapabilities.isMobile) {
+      return {
+        powerPreference: deviceCapabilities.isIOS ? "low-power" : "default",
+        antialias: false, // Expensive on mobile
+        alpha: false,
+        preserveDrawingBuffer: false,
+        stencil: false,
+        depth: true,
+        failIfMajorPerformanceCaveat: deviceCapabilities.isLowPowerDevice
+      };
+    }
+    return {
+      powerPreference: "high-performance",
+      antialias: true,
+      alpha: false,
+      preserveDrawingBuffer: false,
+      stencil: false,
+      depth: true
+    };
+  }, [deviceCapabilities]);
+  
   // Initialize memory manager for mobile devices
   useEffect(() => {
     if (deviceCapabilities.isMobile) {
       const memoryManager = MobileMemoryManager.getInstance();
       memoryManager.startMemoryMonitoring();
       
+      // Add iOS low memory warning handler
+      if (deviceCapabilities.isIOS) {
+        const handleLowMemory = () => {
+          console.warn('🚨 Low memory warning detected on iOS');
+          memoryManager.aggressiveCleanup();
+          // Force reload of essential resources only
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        };
+        
+        // Listen for low memory events (iOS specific)
+        window.addEventListener('memorywarning', handleLowMemory);
+        
+        return () => {
+          memoryManager.stopMemoryMonitoring();
+          window.removeEventListener('memorywarning', handleLowMemory);
+        };
+      }
+      
       return () => {
         memoryManager.stopMemoryMonitoring();
       };
     }
-  }, [deviceCapabilities.isMobile]);
+  }, [deviceCapabilities.isMobile, deviceCapabilities.isIOS]);
   
   // Connect camera controls to GLB state for smooth centering
   useEffect(() => {
-    console.log('🔄 Setting up camera controls ref...');
     setCameraControlsRef(orbitControlsRef);
+    
+    let hasLogged = false;
     
     // Set initial target position when controls are ready
     const setupInitialTarget = () => {
       if (orbitControlsRef.current && orbitControlsRef.current.target && typeof orbitControlsRef.current.target.set === 'function') {
-        console.log('🎯 Setting initial camera target');
+        if (!hasLogged) {
+          console.log('🎯 Camera controls initialized');
+          hasLogged = true;
+        }
         orbitControlsRef.current.target.set(0, 0, 0);
         orbitControlsRef.current.update();
         return true;
-      } else {
-        console.log('🚫 Camera controls not ready:', {
-          hasRef: !!orbitControlsRef.current,
-          hasTarget: !!orbitControlsRef.current?.target,
-          hasSetMethod: typeof orbitControlsRef.current?.target?.set === 'function'
-        });
-        return false;
       }
+      return false;
     };
     
     if (!setupInitialTarget()) {
-      // If controls aren't ready, check periodically
+      // If controls aren't ready, check periodically but limit attempts
+      let attempts = 0;
+      const maxAttempts = 100; // 10 seconds max
+      
       const interval = setInterval(() => {
-        if (setupInitialTarget()) {
+        attempts++;
+        if (setupInitialTarget() || attempts >= maxAttempts) {
           clearInterval(interval);
+          if (attempts >= maxAttempts && !hasLogged) {
+            console.warn('⚠️ Camera controls initialization timeout');
+          }
         }
       }, 100);
       
@@ -490,7 +530,6 @@ function App() {
       Object.entries(csvUnitData).forEach(([unitKey, unitData]) => {
         // Skip buildings we don't want to show
         if (!allowedBuildings.includes(unitData.building)) {
-          console.log(`🚫 Skipping unit ${unitKey} - building not allowed: ${unitData.building}`);
           return;
         }
         
@@ -509,9 +548,9 @@ function App() {
           unit_name: unitData.unit_name || unitData.name,
           status: unitData.status === true, // Convert to boolean as expected by UnitStatus type
           area_sqft: unitData.area_sqft || undefined,
-          floorplan_url: unitData.floorPlanUrl || unitData.floorplan_url,
+          floorplan_url: unitData.floorplan || unitData.floorPlanUrl || unitData.floorplan_url,
           recipients: ['owner@lacenter.com'], // Default recipient
-          kitchen_size: unitData.kitchen_size || 'None',
+          kitchen_size: unitData.kitchen_size,
           unit_type: unitData.unit_type || 'Suite' // Copy unit type from CSV data
         };
         
@@ -719,26 +758,29 @@ function App() {
         {modelsLoading && (
           <div className="absolute inset-0 flex justify-center items-center z-30" 
                style={{ 
-                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                 backdropFilter: 'blur(10px)'
+                 background: 'white',
+                 backdropFilter: 'none'
                }}>
-            <div className="text-center text-white">
+            <div className="text-center">
               
-              {/* LA Center Studios Logo */}
+              {/* Pulsating GIF Logo */}
               <div className="mb-8">
                 <img 
-                  src={import.meta.env.BASE_URL + "textures/la center studios logo.png"} 
-                  alt="LA Center Studios" 
-                  className="mx-auto mb-4 max-w-xs h-auto opacity-90"
-                  style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+                  src={import.meta.env.BASE_URL + "textures/333999.gif"} 
+                  alt="Loading" 
+                  className="mx-auto mb-4 max-w-xs h-auto animate-pulse"
+                  style={{ 
+                    filter: 'none',
+                    animation: 'pulse 2s ease-in-out infinite'
+                  }}
                 />
               </div>
               
               {/* Loading Progress */}
               <div className="mb-6">
-                <div className="bg-white bg-opacity-20 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
+                <div className="bg-gray-200 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
                   <div 
-                    className="bg-white h-full rounded-full transition-all duration-300 ease-out"
+                    className="bg-gray-600 h-full rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${loadingProgress}%` }}
                   ></div>
                 </div>
@@ -746,9 +788,9 @@ function App() {
               
               {/* Animated dots */}
               <div className="flex justify-center space-x-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
               </div>
             </div>
           </div>
@@ -762,34 +804,29 @@ function App() {
         
         
         <Canvas
-          shadows={true}
-          camera={{ position: [-10, 10, -14], fov: 40 }}
+          shadows={mobileSettings.shadows}
+          camera={{ position: [-10, 10, -14], fov: deviceCapabilities.isMobile ? 45 : 40 }}
           style={{ 
             width: '100%', 
             height: '100%',
-            filter: "contrast(1.1) brightness(0.99) saturate(1.0)"
+            filter: deviceCapabilities.isMobile ? "none" : "contrast(1.1) brightness(0.99) saturate(1.0)"
           }}
-          dpr={Math.min(window.devicePixelRatio, 2)}
-          gl={{
-            powerPreference: "high-performance",
-            antialias: true,
-            alpha: false,
-            preserveDrawingBuffer: false,
-            stencil: false,
-            depth: true
-          }}
-          frameloop="always"
+          dpr={mobileSettings.pixelRatio}
+          gl={glConfig}
+          frameloop={deviceCapabilities.isLowPowerDevice ? "demand" : "always"}
         >
-          {/* HDRI-Optimized Lighting System */}
-          <ambientLight intensity={0.27} />
+          {/* Adaptive Lighting System */}
+          <ambientLight intensity={deviceCapabilities.isMobile ? 0.4 : 0.27} />
           
-          {/* Distance-based white vignetting fog */}
-          <fog attach="fog" args={['#ffffff', 15, 60]} />
+          {/* Distance-based fog - disabled on low power devices */}
+          {!deviceCapabilities.isLowPowerDevice && (
+            <fog attach="fog" args={['#ffffff', 15, 60]} />
+          )}
           
-          {/* Key directional light */}
+          {/* Key directional light - simplified for mobile */}
           <directionalLight
             position={[20, 25, 15]}
-            intensity={0.72}
+            intensity={deviceCapabilities.isMobile ? 0.5 : 0.72}
             color="#ffffff"
             castShadow={false}
           />
@@ -808,25 +845,31 @@ function App() {
           {/* GLB Manager for unit boxes with invisible/glowing states */}
           <GLBManager />
           
-          {/* Selected Unit Highlight Overlay */}
-          <SelectedUnitOverlay />
+          {/* Selected Unit Highlight Overlay - simplified for low power devices */}
+          {!deviceCapabilities.isLowPowerDevice && <SelectedUnitOverlay />}
           
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* Kloofendal Clear Sky HDRI Environment - Same for all devices */}
-          <HDRIErrorBoundary>
-            <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
-              <Environment
-                files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
-                background={true}
-                backgroundIntensity={0.45}
-                environmentIntensity={0.54}
-                backgroundBlurriness={0.05}
-                resolution={512}
-              />
-            </React.Suspense>
-          </HDRIErrorBoundary>
+          {/* Adaptive Environment - HDRI for desktop, simple color for mobile */}
+          {deviceCapabilities.isMobile || deviceCapabilities.isLowPowerDevice ? (
+            // Simple sky gradient for mobile devices
+            <color attach="background" args={['#87CEEB']} />
+          ) : (
+            // Full HDRI environment for desktop
+            <HDRIErrorBoundary>
+              <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
+                <Environment
+                  files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
+                  background={true}
+                  backgroundIntensity={0.45}
+                  environmentIntensity={0.54}
+                  backgroundBlurriness={0.05}
+                  resolution={256}
+                />
+              </React.Suspense>
+            </HDRIErrorBoundary>
+          )}
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />

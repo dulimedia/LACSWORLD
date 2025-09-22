@@ -155,9 +155,9 @@ const TOWER_UNIT_FLOOR_MAPPINGS: { [key: string]: { floorFloorplan: string; indi
 const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'et lab': 'mg floorplan.jpg',
   'etlab': 'mg floorplan.jpg',
-  'studio o.m.': 'marylandstreet.jpg',
-  'studio o.m': 'marylandstreet.jpg',
-  'studioom': 'marylandstreet.jpg',
+  'studio o.m.': 'mg floorplan.jpg',
+  'studio o.m': 'mg floorplan.jpg',
+  'studioom': 'mg floorplan.jpg',
   'club 76': 'FGFloor_LACS_page_1.png',
   'club76': 'FGFloor_LACS_page_1.png',
   // Maryland Building Ground Floor units use the mg floorplan

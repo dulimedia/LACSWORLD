@@ -14,6 +14,14 @@ F-240,Available,920,"Central Air • Storage • Balcony",/floorplans/converted/
 F-250,Available,780,"Central Air • Storage",/floorplans/converted/f250.jpg,Fifth Street Building,Second Floor,Stage,Kitchenette
 F-280,Available,1400,"Central Air • In-unit Laundry • Storage • Balcony • Premium",/floorplans/converted/f280.jpg,Fifth Street Building,Second Floor,Suite,Full
 F-290,Available,850,"Central Air • Storage",/floorplans/converted/f290.jpg,Fifth Street Building,Second Floor,Stage,None
+F-300,Available,2600,"Central Air • In-unit Laundry • Storage • Premium • City Views",/floorplans/converted/f300.jpg,Fifth Street Building,Third Floor,Suite,Full
+F-330,Available,2100,"Central Air • In-unit Laundry • Storage • Panoramic Views",/floorplans/converted/f330.jpg,Fifth Street Building,Third Floor,Suite,Full
+F-340,Available,1900,"Central Air • Storage • Modern Workspace",/floorplans/converted/f340.jpg,Fifth Street Building,Third Floor,Suite,Compact
+F-350,Available,2300,"Central Air • In-unit Laundry • Storage • Large Office Space",/floorplans/converted/f350.jpg,Fifth Street Building,Third Floor,Suite,Full
+F-360,Available,2000,"Central Air • Storage • Corner Unit • Natural Light",/floorplans/converted/f360.jpg,Fifth Street Building,Third Floor,Suite,Full
+F-363,Available,1800,"Central Air • Storage • Efficient Unit",/floorplans/converted/f363.jpg,Fifth Street Building,Third Floor,Suite,Compact
+F-365,Available,1950,"Central Air • Storage • Collaboration Spaces",/floorplans/converted/f365.jpg,Fifth Street Building,Third Floor,Suite,Full
+F-380,Available,2500,"Central Air • In-unit Laundry • Storage • Premium Corner • Stunning Views",/floorplans/converted/f380.jpg,Fifth Street Building,Third Floor,Suite,Full
 F-10,Available,1200,"Central Air • Loading dock access",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None
 F-15,Available,1500,"Central Air • Large ground floor space",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None
 F-20,Available,1800,"Central Air • Premium floor unit",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None
@@ -32,16 +40,16 @@ M-150,Available,820,"Central Air • Storage",/floorplans/converted/m150.jpg,Mar
 M-160,Available,960,"Central Air • In-unit Laundry • Storage",/floorplans/converted/m160.jpg,Maryland Building,First Floor,Suite,Full
 M-170,Available,2100,"Central Air • Storage",/floorplans/converted/m170.jpg,Maryland Building,First Floor,Suite,Full
 M-180,Available,2200,"Central Air • Storage",/floorplans/converted/m180.jpg,Maryland Building,First Floor,Suite,Full
-M-20,Available,2171,"Central Air • Storage",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-M-40,Available,2460,"Central Air • Storage",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-M-45,Available,1000,"Central Air • Storage",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-M-50,Available,3269,"Central Air • Storage",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-ET Lab,Available,1500,"Central Air • Laboratory Space • High-tech Equipment",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-et-lab,Available,1500,"Central Air • Laboratory Space • High-tech Equipment",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-Studio O.M,Available,1800,"Central Air • Creative Studio Space • Open Layout",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-studio-om,Available,1800,"Central Air • Creative Studio Space • Open Layout",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Suite,None
-MG - Stage 7 ,Available,3200,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Stage,Kitchenette
-mg-stage-7,Available,3200,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/converted/mg-floorplan.jpg,Maryland Building,Ground Floor,Stage,Kitchenette
+M-20,Available,2171,"Central Air • Storage",/floorplans/converted/LACS_Site Map_M1_Color_page_1.png,Maryland Building,Ground Floor,Suite,None
+M-40,Available,2460,"Central Air • Storage",/floorplans/converted/LACS_Site Map_M1_Color_page_1.png,Maryland Building,Ground Floor,Suite,None
+M-45,Available,1000,"Central Air • Storage",/floorplans/converted/LACS_Site Map_M1_Color_page_1.png,Maryland Building,Ground Floor,Suite,None
+M-50,Available,3269,"Central Air • Storage",/floorplans/converted/LACS_Site Map_M1_Color_page_1.png,Maryland Building,Ground Floor,Suite,None
+ET Lab,Available,1500,"Central Air • Laboratory Space • High-tech Equipment",/floorplans/converted/LACS_Site Map_M1_Color_page_1.png,Maryland Building,Ground Floor,Suite,None
+et-lab,Available,1500,"Central Air • Laboratory Space • High-tech Equipment",/floorplans/converted/LACS_Site Map_M1_Color_page_1.png,Maryland Building,Ground Floor,Suite,None
+Studio O.M.,Available,1800,"Central Air • Creative Studio Space • Open Layout",/floorplans/converted/mg floorplan.jpg,Maryland Building,Ground Floor,Studio,None
+studio-om,Available,1800,"Central Air • Creative Studio Space • Open Layout",/floorplans/converted/mg floorplan.jpg,Maryland Building,Ground Floor,Suite,None
+MG - Stage 7 ,Available,3200,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/converted/mg floorplan.jpg,Maryland Building,Ground Floor,Stage,Kitchenette
+mg-stage-7,Available,3200,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/converted/mg floorplan.jpg,Maryland Building,Ground Floor,Stage,Kitchenette
 M-210,Available,2400,"Central Air • Storage",/floorplans/converted/m210.jpg,Maryland Building,Second Floor,Suite,Full
 M-220,Available,2300,"Central Air • Storage",/floorplans/converted/m220.jpg,Maryland Building,Second Floor,Suite,Full
 M-230,Available,2500,"Central Air • Storage",/floorplans/converted/m230.jpg,Maryland Building,Second Floor,Suite,Full
@@ -60,15 +68,15 @@ T-200,Available,1350,"Central Air • In-unit Laundry • Storage • Corner Uni
 T-210,Available,890,"Central Air • Storage",/floorplans/t210.jpg,Tower Building,,Suite,Kitchenette
 T-220,Available,1100,"Central Air • In-unit Laundry • Storage • Balcony",/floorplans/t220.jpg,Tower Building,,Suite,Full
 T-230,Available,1250,"Central Air • In-unit Laundry • Storage",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
-T-300,Available,1400,"Central Air • In-unit Laundry • Storage • Premium",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-320,Available,1150,"Central Air • Storage • City View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Compact
-T-400,Available,1500,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-300,Available,1400,"Central Air • In-unit Laundry • Storage • Premium",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-410,Available,1450,"Central Air • In-unit Laundry • Storage",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-400,Available,1500,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-420,Available,1300,"Central Air • Storage • Balcony",/floorplans/tower-unit.jpg,Tower Building,,Suite,Compact
 T-430,Available,1550,"Central Air • In-unit Laundry • Storage • Premium",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-450,Available,1600,"Central Air • In-unit Laundry • Storage • Corner Unit",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
-T-500,Available,1700,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-530,Available,1650,"Central Air • In-unit Laundry • Storage",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
+T-500,Available,1700,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-550,Available,1750,"Central Air • In-unit Laundry • Storage • Balcony",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-600,Available,1800,"Central Air • In-unit Laundry • Storage • Premium View",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
 T-700,Available,2000,"Central Air • In-unit Laundry • Storage • Premium • Corner",/floorplans/tower-unit.jpg,Tower Building,,Suite,Full
