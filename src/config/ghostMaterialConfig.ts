@@ -5,7 +5,7 @@
 
 export const GHOST_MATERIAL_CONFIG = {
   // Visual appearance
-  color: '#3aa7ff',      // Soft blue color
+  color: '#0080FF',      // Blue color for selected units
   opacity: 0.25,         // Subtle transparency (was 0.4, now reduced for better readability)
   
   // Fresnel effect parameters (edge glow)

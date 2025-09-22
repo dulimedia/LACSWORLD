@@ -191,6 +191,8 @@ const FloorNode: React.FC<FloorNodeProps> = ({
       // Update GLB state for 3D visualization (check if camera is not already animating)
       const { isCameraAnimating } = useGLBState.getState();
       
+      console.log('🎮 ExplorePanel: isCameraAnimating check:', isCameraAnimating);
+      
       if (!isCameraAnimating) {
         let glbUnitName = unitData.unit_name;
         
@@ -199,7 +201,12 @@ const FloorNode: React.FC<FloorNodeProps> = ({
           glbUnitName = "Studio O.M.";
         }
         
-        selectUnit(building, floor, glbUnitName);
+        console.log('🎯 Camera focusing on unit:', { 
+          building: unitData.building, 
+          floor: unitData.floor, 
+          unit: glbUnitName 
+        });
+        selectUnit(unitData.building, unitData.floor, glbUnitName);
       }
       
       // Navigate to details view if we have the handler
@@ -904,6 +911,8 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               
               // Update GLB state for 3D visualization
               const { selectUnit, isCameraAnimating } = useGLBState.getState();
+              
+              console.log('🎮 ExplorePanel GLB tree: isCameraAnimating check:', isCameraAnimating);
               
               // Only proceed if camera is not already animating (prevent duplicate calls)
               if (!isCameraAnimating) {

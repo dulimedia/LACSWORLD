@@ -8,6 +8,7 @@ import { FALLBACK_UNIT_DATA } from '../App';
 import { UnitData, LoadedModel } from '../types';
 import { useFilterStore } from '../stores/useFilterStore';
 import FresnelMaterial from '../materials/FresnelMaterial';
+import PalmTreeInstancerSimple from './PalmTreeInstancerSimple';
 
 class UnitWarehouseErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: any }> {
   constructor(props: { children: React.ReactNode }) {
@@ -561,8 +562,8 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
   }), []);
 
   const highlightMaterial = new THREE.MeshStandardMaterial({
-    color: new THREE.Color('#87CEFA'), 
-    emissive: new THREE.Color('#87CEFA'),
+    color: new THREE.Color('#0080FF'), 
+    emissive: new THREE.Color('#0080FF'),
     emissiveIntensity: 2,
     transparent: true,
     opacity: 0.7,
@@ -935,6 +936,9 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       {loadedModels.map((model) => (
         <primitive key={model.name} object={model.object} />
       ))}
+      
+      {/* Palm Trees */}
+      <PalmTreeInstancerSimple visible={true} />
     </group>
   );
 };

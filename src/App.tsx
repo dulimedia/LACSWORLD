@@ -206,6 +206,33 @@ const CameraController: React.FC<{
   selectedUnit: string | null;
   controlsRef: React.RefObject<any>;
 }> = ({ controlsRef }) => {
+  useEffect(() => {
+    console.log('📷 CameraController mounted, controlsRef:', {
+      hasRef: !!controlsRef,
+      hasCurrent: !!controlsRef?.current,
+      currentType: typeof controlsRef?.current
+    });
+    
+    // Set up a timer to check when the controls are ready
+    const checkControls = () => {
+      if (controlsRef?.current) {
+        console.log('📷 CameraControls ready!', controlsRef.current);
+        return true;
+      }
+      return false;
+    };
+    
+    // Check immediately
+    if (!checkControls()) {
+      // Check again after a short delay
+      const timeout = setTimeout(() => {
+        checkControls();
+      }, 100);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [controlsRef]);
+  
   return (
     <CameraControls
       ref={controlsRef}
@@ -214,12 +241,12 @@ const CameraController: React.FC<{
       maxPolarAngle={Math.PI * 0.48}
       minDistance={8}
       maxDistance={25}
-      dollySpeed={1}
-      truckSpeed={0}
-      azimuthRotateSpeed={0.3}
-      polarRotateSpeed={0.3}
-      draggingSmoothTime={0.25}
-      smoothTime={0.25}
+      dollySpeed={0.5}
+      truckSpeed={1}
+      azimuthRotateSpeed={0.15}
+      polarRotateSpeed={0.15}
+      draggingSmoothTime={0.4}
+      smoothTime={0.4}
     />
   );
 };
@@ -326,7 +353,7 @@ function App() {
   } | null>(null);
   
   // Camera controls ref for navigation
-  const orbitControlsRef = useRef<any>(null);
+  const orbitControlsRef = useRef<CameraControls>(null);
   
   // Mobile device detection and optimization settings
   const deviceCapabilities = useMemo(() => detectDevice(), []);
@@ -346,12 +373,35 @@ function App() {
   
   // Connect camera controls to GLB state for smooth centering
   useEffect(() => {
+    console.log('🔄 Setting up camera controls ref...');
     setCameraControlsRef(orbitControlsRef);
     
     // Set initial target position when controls are ready
-    if (orbitControlsRef.current) {
-      orbitControlsRef.current.target.set(0, 0, 0);
-      orbitControlsRef.current.update();
+    const setupInitialTarget = () => {
+      if (orbitControlsRef.current && orbitControlsRef.current.target && typeof orbitControlsRef.current.target.set === 'function') {
+        console.log('🎯 Setting initial camera target');
+        orbitControlsRef.current.target.set(0, 0, 0);
+        orbitControlsRef.current.update();
+        return true;
+      } else {
+        console.log('🚫 Camera controls not ready:', {
+          hasRef: !!orbitControlsRef.current,
+          hasTarget: !!orbitControlsRef.current?.target,
+          hasSetMethod: typeof orbitControlsRef.current?.target?.set === 'function'
+        });
+        return false;
+      }
+    };
+    
+    if (!setupInitialTarget()) {
+      // If controls aren't ready, check periodically
+      const interval = setInterval(() => {
+        if (setupInitialTarget()) {
+          clearInterval(interval);
+        }
+      }, 100);
+      
+      return () => clearInterval(interval);
     }
   }, [setCameraControlsRef]);
   

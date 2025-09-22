@@ -262,10 +262,51 @@ export const buildUnitsIndex = (units: Map<string, UnitRecord>): Record<string, 
     index[building][floor].push(unitKey);
   });
   
-  // Sort units within each floor
+  // Sort units within each floor - numeric sorting for proper order
   Object.keys(index).forEach(building => {
     Object.keys(index[building]).forEach(floor => {
-      index[building][floor].sort();
+      index[building][floor].sort((a, b) => {
+        // Extract unit names from keys for comparison
+        const getUnitName = (key: string) => {
+          // Handle various key formats - get the actual unit name
+          if (key.includes('/')) {
+            return key.split('/').pop() || key;
+          }
+          return key;
+        };
+        
+        const unitA = getUnitName(a);
+        const unitB = getUnitName(b);
+        
+        // Extract numbers from unit names for numeric sorting
+        const extractNumber = (unitName: string) => {
+          const match = unitName.match(/([A-Za-z]+)-?(\d+)/);
+          return match ? parseInt(match[2], 10) : 0;
+        };
+        
+        const extractPrefix = (unitName: string) => {
+          const match = unitName.match(/([A-Za-z]+)-?(\d+)/);
+          return match ? match[1].toLowerCase() : unitName.toLowerCase();
+        };
+        
+        const prefixA = extractPrefix(unitA);
+        const prefixB = extractPrefix(unitB);
+        const numberA = extractNumber(unitA);
+        const numberB = extractNumber(unitB);
+        
+        // First sort by prefix (F, M, T, etc.)
+        if (prefixA !== prefixB) {
+          return prefixA.localeCompare(prefixB);
+        }
+        
+        // Then sort by number (100, 110, 200, 210, not 100, 1000, 110)
+        if (numberA !== numberB) {
+          return numberA - numberB;
+        }
+        
+        // Fall back to string comparison for edge cases
+        return unitA.localeCompare(unitB);
+      });
     });
   });
   

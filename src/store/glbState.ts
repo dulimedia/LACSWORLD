@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import * as THREE from 'three';
+import { CameraControls } from '@react-three/drei';
 
 export type GLBVisibilityState = 'invisible' | 'glowing';
 
@@ -28,7 +29,7 @@ export interface GLBState {
   selectedUnit: string | null;
   
   // Camera controls reference for smooth centering
-  cameraControlsRef: React.MutableRefObject<any> | null;
+  cameraControlsRef: React.MutableRefObject<CameraControls> | null;
   
   // Camera animation state
   isCameraAnimating: boolean;
@@ -55,8 +56,9 @@ export interface GLBState {
   clearSelection: () => void;
   clearUnitSelection: () => void;
   setLoadingState: (loading: boolean, loaded?: number, total?: number) => void;
-  setCameraControlsRef: (ref: React.MutableRefObject<any> | null) => void;
+  setCameraControlsRef: (ref: React.MutableRefObject<CameraControls> | null) => void;
   centerCameraOnUnit: (building: string, floor: string, unit: string) => void;
+  resetCameraAnimation: () => void;
   
   // Getters
   getGLBsByBuilding: (building: string) => GLBNodeInfo[];
@@ -247,7 +249,9 @@ export const useGLBState = create<GLBState>((set, get) => ({
   },
 
   selectUnit: (building: string | null, floor: string | null, unit: string | null, skipCameraAnimation = false) => {
-    const { glbNodes } = get();
+    const { glbNodes, isCameraAnimating } = get();
+    
+    console.log('🎯 selectUnit called:', { building, floor, unit, skipCameraAnimation, isCameraAnimating });
     
     // Reset all GLBs to invisible first
     glbNodes.forEach((node, key) => {
@@ -258,14 +262,23 @@ export const useGLBState = create<GLBState>((set, get) => ({
       // Set only the specific unit GLB to glowing
       const unitGLB = get().getGLBByUnit(building, floor, unit);
       
+      console.log('🏢 Found unitGLB for selection:', !!unitGLB, unitGLB?.key);
+      
       if (unitGLB) {
         get().setGLBState(unitGLB.key, 'glowing');
         
         // Only animate camera on initial selection, not when restoring state
         if (!skipCameraAnimation) {
+          console.log('📹 Calling centerCameraOnUnit...');
           get().centerCameraOnUnit(building, floor, unit);
+        } else {
+          console.log('📹 Skipping camera animation (skipCameraAnimation = true)');
         }
+      } else {
+        console.log('❌ No GLB found for unit:', { building, floor, unit });
       }
+    } else {
+      console.log('❌ Invalid unit selection parameters:', { building, unit, floor });
     }
     
     set({ 
@@ -444,7 +457,12 @@ export const useGLBState = create<GLBState>((set, get) => ({
       key = `${building}/${floor}/${unit}`;
     }
     
+    console.log('🔍 Looking for GLB unit with key:', key);
+    console.log('🗂️ Available GLB keys:', Array.from(glbNodes.keys()));
+    
     const result = glbNodes.get(key);
+    console.log('🎯 GLB lookup result:', result ? 'FOUND' : 'NOT FOUND');
+    
     return result;
   },
 
@@ -497,87 +515,75 @@ export const useGLBState = create<GLBState>((set, get) => ({
 
   // Camera controls functions
   setCameraControlsRef: (ref: React.MutableRefObject<any> | null) => {
+    console.log('📷 setCameraControlsRef called with:', { 
+      hasRef: !!ref, 
+      hasCurrent: !!ref?.current,
+      currentType: typeof ref?.current 
+    });
     set({ cameraControlsRef: ref });
   },
 
+  // Reset camera animation state (useful if it gets stuck)
+  resetCameraAnimation: () => {
+    console.log('🔄 Resetting camera animation state');
+    set({ isCameraAnimating: false });
+  },
+
   centerCameraOnUnit: (building: string, floor: string, unit: string) => {
-    const { cameraControlsRef, getGLBByUnit, isCameraAnimating } = get();
+    const { cameraControlsRef, getGLBByUnit } = get();
     
-    // Prevent duplicate calls during animation
-    if (isCameraAnimating) {
-      return;
-    }
+    console.log('🎯 centerCameraOnUnit called:', { building, floor, unit });
     
     if (!cameraControlsRef?.current) {
-      return;
-    }
-
-    const unitGLB = getGLBByUnit(building, floor, unit);
-    if (!unitGLB?.object) {
+      console.log('🚫 No camera controls ref available');
       return;
     }
 
     const controls = cameraControlsRef.current;
-    const camera = controls.object;
+    console.log('🎮 Camera controls object:', controls);
     
-    if (!controls || !camera) {
+    const unitGLB = getGLBByUnit(building, floor, unit);
+    console.log('🏢 Found unit GLB:', unitGLB);
+    
+    if (!unitGLB?.object) {
+      console.log('🚫 No GLB object found for unit');
       return;
     }
-
+    
     // Get the unit's world position
     const unitPosition = new THREE.Vector3();
     unitGLB.object.getWorldPosition(unitPosition);
+    console.log('📍 Unit world position:', unitPosition);
+    
+    // Update the world matrix to ensure accurate positioning
+    unitGLB.object.updateMatrixWorld(true);
     
     // If at origin, try bounding box center
     if (unitPosition.lengthSq() < 0.01) {
+      console.log('📦 Unit at origin, trying bounding box center');
       const box = new THREE.Box3().setFromObject(unitGLB.object);
-      box.getCenter(unitPosition);
+      if (!box.isEmpty()) {
+        box.getCenter(unitPosition);
+        console.log('📦 Bounding box center:', unitPosition);
+      }
     }
 
     // Skip if we still can't find a valid position
     if (unitPosition.lengthSq() < 0.01) {
+      console.log('🚫 No valid position found for unit');
       return;
     }
-
-    // Set animation state
-    set({ isCameraAnimating: true });
-
-    // Store initial values
-    const startTarget = controls.target.clone();
-    const startTime = performance.now();
-    const animationDuration = 1200; // 1.2 seconds for smooth movement
-
-    // Calculate the new target - just move target to unit position (no camera position change)
-    const endTarget = unitPosition.clone();
     
-    // Easing function for smooth animation
-    const easeInOutCubic = (t: number): number => {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    };
+    console.log('✅ Changing camera target to focus on unit at position:', unitPosition);
 
-    // Animation loop
-    const animate = () => {
-      const currentTime = performance.now();
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / animationDuration, 1);
+    // Use the correct CameraControls API method
+    try {
+      // setTarget(targetX, targetY, targetZ, enableTransition) - Sets only the target while keeping current camera position
+      controls.setTarget(unitPosition.x, unitPosition.y, unitPosition.z, true);
+      console.log('🎬 Camera target set successfully using setTarget method!');
       
-      // Apply easing
-      const easedProgress = easeInOutCubic(progress);
-      
-      // Interpolate target position only (keep camera position unchanged)
-      const currentTarget = new THREE.Vector3().lerpVectors(startTarget, endTarget, easedProgress);
-      controls.target.copy(currentTarget);
-      controls.update();
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
-        // Animation complete
-        set({ isCameraAnimating: false });
-      }
-    };
-    
-    // Start the animation
-    requestAnimationFrame(animate);
+    } catch (error) {
+      console.error('❌ Error setting camera target:', error);
+    }
   }
 }));
