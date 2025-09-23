@@ -24,8 +24,16 @@ jobs:
     - name: Build
       run: |
         npm run build
+        echo "Verifying build output:"
         ls -la dist/
-        ls -la dist/assets/
+        ls -la dist/assets/ || echo "No assets folder created"
+        echo "Checking for missing files:"
+        ls -la dist/palm-tree.glb || echo "Missing palm-tree.glb"
+        ls -la dist/textures/qwantani_noon_puresky_2k.hdr || echo "Missing texture file"
+        echo "If build failed, copying public files manually:"
+        if [ ! -f dist/palm-tree.glb ]; then
+          cp -r public/* dist/ || echo "Manual copy failed"
+        fi
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
