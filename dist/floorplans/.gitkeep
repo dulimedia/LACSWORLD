@@ -1,0 +1,2 @@
+# This file ensures the floorplans directory is tracked by Git
+# PNG files in this directory should be committed for production deployment 
