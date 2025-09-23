@@ -19,6 +19,7 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
+    console.log('📊 CSV fetchData called with URL:', url);
     setLoading(true);
     try {
       // Skip cache busting for Google Sheets URLs to avoid redirect issues
@@ -31,6 +32,7 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
         finalUrl = url + cacheBuster;
       }
       
+      console.log('📊 Fetching from URL:', finalUrl);
       const response = await fetch(finalUrl, { 
         cache: 'no-store',
         headers: {
@@ -38,10 +40,12 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
           'Pragma': 'no-cache'
         }
       });
+      console.log('📊 Response status:', response.status, response.statusText);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const csvText = await response.text();
+      console.log('📊 CSV text length:', csvText.length, 'First 100 chars:', csvText.substring(0, 100));
       
       Papa.parse(csvText, {
         header: true,
@@ -64,7 +68,7 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                 const unitDataEntry = {
                   name: row.Product,
                   availability: isAvailable,
-                  size: row.Size,
+                  size: row.Size_RSF || row.Size,
                   floorPlanUrl: floorplanUrl,
                   floorplan_url: floorplanUrl, // Ensure both naming conventions work
                   // Map additional fields for the app
@@ -72,7 +76,15 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                   unit_key: unitNameLower,
                   building: row.Building,
                   floor: row.Floor || '',
-                  area_sqft: parseInt(row.Size) || 0,
+                  area_sqft: (() => {
+                    const rawSize = row.Size_RSF || row.Size || '';
+                    const cleanSize = rawSize.replace(/[,\s]/g, '').replace(/RSF/gi, '').replace(/[A-Za-z]/g, '');
+                    const parsed = parseInt(cleanSize);
+                    if (row.Product === 'F-200' || row.Product === 'M-20') {
+                      console.log(`🔍 ${row.Product} area parsing:`, { rawSize, cleanSize, parsed, finalValue: parsed || undefined });
+                    }
+                    return parsed > 0 ? parsed : undefined;
+                  })(),
                   status: isAvailable,
                   unit_type: row.Unit_Type || 'Commercial',
                   kitchen_size: row.Kitchen_Size || 'None',

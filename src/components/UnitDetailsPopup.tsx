@@ -48,6 +48,15 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
     recipients: []
   } as UnitRecord;
 
+  // Debug logging
+  if (displayUnit.unit_name === 'F-200' || displayUnit.unit_name === 'M-20') {
+    console.log(`🔍 UnitDetailsPopup - ${displayUnit.unit_name} data:`, {
+      area_sqft: displayUnit.area_sqft,
+      size: displayUnit.size,
+      fullUnit: displayUnit
+    });
+  }
+
   // Check if this is a tower unit with individual floorplan
   const isTower = isTowerUnit(displayUnit.unit_name || '');
   const individualFloorplan = getTowerUnitIndividualFloorplan(displayUnit.unit_name || '');
@@ -201,11 +210,14 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
 
               {/* Details */}
               <div className="space-y-4">
-                {displayUnit.area_sqft && (
+                {(displayUnit.area_sqft || displayUnit.size) && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">Area</span>
                     <span className="text-sm text-gray-900">
-                      {displayUnit.area_sqft.toLocaleString()} sq ft
+                      {displayUnit.area_sqft ? 
+                        `${displayUnit.area_sqft.toLocaleString()} sq ft` : 
+                        displayUnit.size || 'N/A'
+                      }
                     </span>
                   </div>
                 )}
