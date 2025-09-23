@@ -199,36 +199,38 @@ export const useExploreState = create<ExploreState>((set, get) => ({
 
   getBuildingList: () => {
     const buildings = Object.keys(get().unitsByBuilding).sort();
-    console.log('🏢 getBuildingList: Available buildings:', buildings);
-    console.log('🏢 getBuildingList: unitsByBuilding data:', get().unitsByBuilding);
     return buildings;
   },
 
   getFloorList: (building: string) => {
-    console.log(`🚨 EXPLORE STATE getFloorList CALLED for building: "${building}"`);
     const { unitsByBuilding } = get();
     const floors = Object.keys(unitsByBuilding[building] || {});
-    console.log(`🏢 FLOOR DEBUG: Building "${building}" - Raw floors:`, floors);
     
     // FORCE CORRECT ORDER: Ground → First → Second → Third
-    const floorOrder = ['Ground Floor', 'Gound Floor', 'First Floor', 'Second Floor', 'Third Floor'];
+    const floorOrder = ['Ground Floor', 'First Floor', 'Second Floor', 'Third Floor'];
     
     const sortedFloors = floors.sort((a, b) => {
-      // Find index in our desired order (-1 if not found)
-      let aIndex = floorOrder.findIndex(orderFloor => 
-        a.toLowerCase().includes(orderFloor.toLowerCase()) || 
-        orderFloor.toLowerCase().includes(a.toLowerCase())
-      );
-      let bIndex = floorOrder.findIndex(orderFloor => 
-        b.toLowerCase().includes(orderFloor.toLowerCase()) || 
-        orderFloor.toLowerCase().includes(b.toLowerCase())
-      );
+      // First try exact match
+      let aIndex = floorOrder.indexOf(a);
+      let bIndex = floorOrder.indexOf(b);
+      
+      // If no exact match, try partial matching
+      if (aIndex === -1) {
+        aIndex = floorOrder.findIndex(orderFloor => 
+          a.toLowerCase().includes(orderFloor.toLowerCase()) || 
+          orderFloor.toLowerCase().includes(a.toLowerCase())
+        );
+      }
+      if (bIndex === -1) {
+        bIndex = floorOrder.findIndex(orderFloor => 
+          b.toLowerCase().includes(orderFloor.toLowerCase()) || 
+          orderFloor.toLowerCase().includes(b.toLowerCase())
+        );
+      }
       
       // If not found in our order list, put at end (high index)
       if (aIndex === -1) aIndex = 999;
       if (bIndex === -1) bIndex = 999;
-      
-      console.log(`🔢 FORCE SORTING: "${a}" (index ${aIndex}) vs "${b}" (index ${bIndex})`);
       
       // Sort by index in our desired order
       if (aIndex !== bIndex) {
@@ -238,8 +240,6 @@ export const useExploreState = create<ExploreState>((set, get) => ({
       // If same index, sort alphabetically
       return a.localeCompare(b);
     });
-    
-    console.log(`🏢 FLOOR DEBUG: Building "${building}" - FINAL SORTED floors:`, sortedFloors);
     return sortedFloors;
   }
 }));
@@ -278,7 +278,21 @@ export const buildUnitsIndex = (units: Map<string, UnitRecord>): Record<string, 
         const unitA = getUnitName(a);
         const unitB = getUnitName(b);
         
-        // Extract numbers from unit names for numeric sorting
+        // Special handling for Tower Building units (T-100, T-110, T-200, etc.)
+        if (building === 'Tower Building') {
+          const getTowerNumber = (unitName: string) => {
+            const match = unitName.match(/^T-?(\d+)$/i);
+            return match ? parseInt(match[1], 10) : 0;
+          };
+          
+          const numberA = getTowerNumber(unitA);
+          const numberB = getTowerNumber(unitB);
+          
+          // Sort numerically: 100, 110, 200, 210, 220, 230, etc.
+          return numberA - numberB;
+        }
+        
+        // Extract numbers from unit names for numeric sorting (other buildings)
         const extractNumber = (unitName: string) => {
           const match = unitName.match(/([A-Za-z]+)-?(\d+)/);
           return match ? parseInt(match[2], 10) : 0;
@@ -294,7 +308,7 @@ export const buildUnitsIndex = (units: Map<string, UnitRecord>): Record<string, 
         const numberA = extractNumber(unitA);
         const numberB = extractNumber(unitB);
         
-        // First sort by prefix (F, M, T, etc.)
+        // First sort by prefix (F, M, etc.)
         if (prefixA !== prefixB) {
           return prefixA.localeCompare(prefixB);
         }

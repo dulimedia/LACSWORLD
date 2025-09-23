@@ -531,7 +531,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
               
               // Define floor order priority
               const getFloorPriority = (floorName: string) => {
-                if (floorName.includes('ground') || floorName.includes('gound')) return 0;
+                if (floorName.includes('ground')) return 0;
                 if (floorName.includes('first')) return 1;
                 if (floorName.includes('second')) return 2;
                 if (floorName.includes('third')) return 3;
@@ -1020,7 +1020,48 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
             
             {expanded && node.children && (
               <div className="bg-gray-50 max-h-64 overflow-y-auto">
-                {node.children.map((child, idx) => 
+                {node.children
+                  .sort((a, b) => {
+                    // Special sorting for Tower Building units
+                    if (node.name === "Tower Building") {
+                      const getUnitNumber = (item: TreeNode | string) => {
+                        const name = typeof item === 'string' ? item : item.name;
+                        const match = name.match(/^T-(\d+)$/i);
+                        return match ? parseInt(match[1], 10) : 0;
+                      };
+                      
+                      const aNum = getUnitNumber(a);
+                      const bNum = getUnitNumber(b);
+                      return aNum - bNum;
+                    }
+                    
+                    // For building floors, sort by floor priority: Ground → First → Second → Third
+                    if (typeof a !== 'string' && typeof b !== 'string') {
+                      const aName = a.name.toLowerCase();
+                      const bName = b.name.toLowerCase();
+                      
+                      const getFloorPriority = (floorName: string) => {
+                        if (floorName.includes('ground')) return 0;
+                        if (floorName.includes('first')) return 1;
+                        if (floorName.includes('second')) return 2;
+                        if (floorName.includes('third')) return 3;
+                        return 999;
+                      };
+                      
+                      const aPriority = getFloorPriority(aName);
+                      const bPriority = getFloorPriority(bName);
+                      
+                      if (aPriority !== bPriority) {
+                        return aPriority - bPriority;
+                      }
+                    }
+                    
+                    // Default alphabetical sort for other items
+                    const aName = typeof a === 'string' ? a : a.name;
+                    const bName = typeof b === 'string' ? b : b.name;
+                    return aName.localeCompare(bName);
+                  })
+                  .map((child, idx) => 
                   renderGLBNode(
                     child, 
                     `${nodePath}/${typeof child === 'string' ? child : child.name}-${idx}`, 
@@ -1089,7 +1130,27 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     ? "flex flex-col" 
                     : "grid grid-cols-2"
                 }`}>
-                  {node.children.map((child, idx) => 
+                  {node.children
+                    .sort((a, b) => {
+                      // Special sorting for Tower Building units
+                      if (parentPath[0] === "Tower Building") {
+                        const getUnitNumber = (item: TreeNode | string) => {
+                          const name = typeof item === 'string' ? item : item.name;
+                          const match = name.match(/^T-(\d+)$/i);
+                          return match ? parseInt(match[1], 10) : 0;
+                        };
+                        
+                        const aNum = getUnitNumber(a);
+                        const bNum = getUnitNumber(b);
+                        return aNum - bNum;
+                      }
+                      
+                      // Default alphabetical sort for units within floors
+                      const aName = typeof a === 'string' ? a : a.name;
+                      const bName = typeof b === 'string' ? b : b.name;
+                      return aName.localeCompare(bName);
+                    })
+                    .map((child, idx) => 
                     renderGLBNode(
                       child, 
                       `${nodePath}/${typeof child === 'string' ? child : child.name}-${idx}`, 
@@ -1130,12 +1191,12 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         onMouseDown={handleMouseDown('width')}
       />
       {/* Header */}
-      <div className={`bg-white bg-opacity-55 backdrop-blur-md border-b border-white border-opacity-50 px-6 py-3 transition-all duration-300 delay-75 ${
+      <div className={`bg-white bg-opacity-55 backdrop-blur-md border-b border-white border-opacity-50 px-4 py-2 transition-all duration-300 delay-75 ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
       }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <h2 className="text-sm font-semibold text-gray-900">
+          <div className="flex items-center space-x-2">
+            <h2 className="text-xs font-semibold text-gray-900">
               {currentView === 'details' ? 'Unit Details' : 'Explore Units'}
             </h2>
             {currentView === 'explore' && (
@@ -1146,11 +1207,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-5 h-5 bg-gray-100 hover:bg-gray-200 
+            className="flex items-center justify-center w-4 h-4 bg-gray-100 hover:bg-gray-200 
                        rounded-md transition-colors duration-150"
             title="Close Panel"
           >
-            <X size={12} className="text-gray-600" />
+            <X size={10} className="text-gray-600" />
           </button>
         </div>
       </div>
@@ -1164,17 +1225,17 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           {/* Explore Units Panel - Left side */}
           <div className="w-full flex-shrink-0 flex flex-col">
             {/* Filter Section - Now inside the sliding container */}
-            <div className="bg-white bg-opacity-55 backdrop-blur-md border-b border-gray-200 px-4 py-3">
-              <div className="space-y-2">
+            <div className="bg-white bg-opacity-55 backdrop-blur-md border-b border-gray-200 px-3 py-1.5">
+              <div className="space-y-1">
                 {/* Square Footage Filter */}
-                <div className="space-y-2">
+                <div className="space-y-0.5">
                   <div className="flex items-center space-x-1">
-                    <Sliders size={14} className="text-gray-500" />
+                    <Sliders size={12} className="text-gray-500" />
                     <span className="text-xs font-medium text-gray-700">Square Footage:</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                     {/* Min Dropdown */}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       <label className="text-xs text-gray-600">Min</label>
                       <select
                         value={filters.minSqft}
@@ -1185,7 +1246,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                             minSqft: Math.min(newMin, prev.maxSqft)
                           }));
                         }}
-                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                        className="w-full text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
                       >
                         {sqftOptions
                           .filter(opt => filters.maxSqft === -1 || opt.value <= filters.maxSqft || opt.value === -1)
@@ -1198,7 +1259,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     </div>
                     
                     {/* Max Dropdown */}
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                       <label className="text-xs text-gray-600">Max</label>
                       <select
                         value={filters.maxSqft}
@@ -1209,7 +1270,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                             maxSqft: Math.max(newMax, prev.minSqft)
                           }));
                         }}
-                        className="w-full text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                        className="w-full text-xs border border-gray-300 rounded px-1.5 py-0.5 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
                       >
                         {sqftOptions
                           .filter(opt => filters.minSqft === -1 || opt.value >= filters.minSqft || opt.value === -1)
@@ -1224,15 +1285,15 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                 </div>
                 
                 {/* Kitchen Filter */}
-                <div className="space-y-2">
+                <div className="space-y-0.5">
                   <div className="flex items-center space-x-1">
-                    <Home size={14} className="text-gray-500" />
+                    <Home size={12} className="text-gray-500" />
                     <span className="text-xs font-medium text-gray-700">Kitchen:</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'any' }))}
-                      className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                      className={`px-1.5 py-0.5 text-xs rounded transition-colors duration-150 ${
                         filters.hasKitchen === 'any' 
                           ? 'bg-blue-100 text-blue-700 border border-blue-300' 
                           : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
@@ -1242,7 +1303,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     </button>
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'yes' }))}
-                      className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                      className={`px-1.5 py-0.5 text-xs rounded transition-colors duration-150 ${
                         filters.hasKitchen === 'yes' 
                           ? 'bg-blue-100 text-blue-700 border border-blue-300' 
                           : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
@@ -1252,7 +1313,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     </button>
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'no' }))}
-                      className={`px-2 py-1 text-xs rounded transition-colors duration-150 ${
+                      className={`px-1.5 py-0.5 text-xs rounded transition-colors duration-150 ${
                         filters.hasKitchen === 'no' 
                           ? 'bg-blue-100 text-blue-700 border border-blue-300' 
                           : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
@@ -1277,8 +1338,15 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3 p-4">
-                  {tree.children && tree.children.map((child, idx) => 
+                <div className="flex flex-col gap-2 p-3">
+                  {tree.children && tree.children
+                    .sort((a, b) => {
+                      // Building-level sorting - keep alphabetical  
+                      const aName = typeof a === 'string' ? a : a.name;
+                      const bName = typeof b === 'string' ? b : b.name;
+                      return aName.localeCompare(bName);
+                    })
+                    .map((child, idx) => 
                     renderGLBNode(
                       child, 
                       `${tree.name}/${typeof child === 'string' ? child : child.name}-${idx}`, 

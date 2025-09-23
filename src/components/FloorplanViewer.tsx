@@ -39,10 +39,49 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
     setIsFullscreen(isExpanded);
   }, [isExpanded]);
 
+  // Lock body scroll when fullscreen modal is open
+  useEffect(() => {
+    if (isFullscreen) {
+      // Store original overflow style
+      const originalOverflow = document.body.style.overflow;
+      
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore original overflow when modal closes
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isFullscreen]);
+
   // Handle wheel events for floorplan zoom and prevent 3D scene zoom
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      // Only handle if we're directly over the floorplan image area
+      // ALWAYS prevent scroll when in fullscreen modal to stop page zoom
+      if (isFullscreen) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // Only zoom the floorplan if we're over the image area
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-floorplan-image]')) {
+          const delta = e.deltaY;
+          const zoomStep = 25;
+          
+          if (delta < 0) {
+            // Zoom in
+            setZoom(prev => Math.min(prev + zoomStep, 300));
+          } else {
+            // Zoom out
+            setZoom(prev => Math.max(prev - zoomStep, 50));
+          }
+        }
+        return;
+      }
+      
+      // For non-fullscreen, only handle if over the image area
       const target = e.target as HTMLElement;
       if (!target.closest('[data-floorplan-image]')) {
         return;
@@ -63,14 +102,24 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
       }
     };
 
-    const container = containerRef.current;
-    if (container && isFullscreen) {
-      // Use capture phase to intercept before other listeners
-      container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    // Add global wheel listener when fullscreen to capture ALL wheel events
+    if (isFullscreen) {
+      // Listen on document to catch all wheel events
+      document.addEventListener('wheel', handleWheel, { passive: false, capture: true });
       
       return () => {
-        container.removeEventListener('wheel', handleWheel, true);
+        document.removeEventListener('wheel', handleWheel, true);
       };
+    } else {
+      // For non-fullscreen, only listen on the container
+      const container = containerRef.current;
+      if (container) {
+        container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+        
+        return () => {
+          container.removeEventListener('wheel', handleWheel, true);
+        };
+      }
     }
   }, [isFullscreen]);
 

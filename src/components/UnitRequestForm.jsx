@@ -64,10 +64,64 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
       }
     });
     
+    // Sort floors within each building: Ground → First → Second → Third
+    Object.keys(unitsStructure).forEach(building => {
+      const floors = Object.keys(unitsStructure[building]);
+      const sortedFloors = floors.sort((a, b) => {
+        const getFloorPriority = (floorName) => {
+          const lower = floorName.toLowerCase();
+          if (lower.includes('ground')) return 0;
+          if (lower.includes('first')) return 1;
+          if (lower.includes('second')) return 2;
+          if (lower.includes('third')) return 3;
+          return 999; // Other floors go last
+        };
+        
+        const aPriority = getFloorPriority(a);
+        const bPriority = getFloorPriority(b);
+        
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+        return a.localeCompare(b);
+      });
+      
+      // Rebuild the building object with sorted floors
+      const sortedBuilding = {};
+      sortedFloors.forEach(floor => {
+        sortedBuilding[floor] = unitsStructure[building][floor];
+      });
+      unitsStructure[building] = sortedBuilding;
+    });
+    
     // Sort units within each floor for consistent display
     Object.keys(unitsStructure).forEach(building => {
       Object.keys(unitsStructure[building]).forEach(floor => {
-        unitsStructure[building][floor].sort();
+        unitsStructure[building][floor].sort((a, b) => {
+          // Special sorting for Tower Building units
+          if (building === "Tower Building") {
+            const getTowerNumber = (unitName) => {
+              const match = unitName.match(/^T-(\d+)$/i);
+              return match ? parseInt(match[1], 10) : 0;
+            };
+            
+            const aNum = getTowerNumber(a);
+            const bNum = getTowerNumber(b);
+            return aNum - bNum;
+          }
+          
+          // Custom sort to prioritize numeric units for other buildings
+          const aMatch = a.match(/(\d+)/);
+          const bMatch = b.match(/(\d+)/);
+          
+          if (aMatch && bMatch) {
+            const aNum = parseInt(aMatch[1]);
+            const bNum = parseInt(bMatch[1]);
+            return aNum - bNum;
+          }
+          
+          return a.localeCompare(b);
+        });
       });
     });
     
@@ -135,9 +189,15 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
     
     const selectedUnitsList = Array.from(selectedUnits).sort();
     
+    // SIMPLIFIED: All emails go to main address for now
+    const recipientEmail = 'lacenterstudios3d@gmail.com';
+    
+    console.log('📧 DEBUG: All emails will be sent to:', recipientEmail);
+    console.log('🔍 DEBUG: Selected units list:', selectedUnitsList);
+    
     // Format the email data
     const emailData = {
-      to: 'owner@lacenter.com', // Replace with actual owner email
+      to: recipientEmail, // Use unit-specific email from CSV
       subject: `Unit Inquiry - ${senderName}`,
       body: `
 New Unit Inquiry
@@ -157,35 +217,62 @@ Sent from LA Center Unit Request System
       `.trim()
     };
 
-    // Here you would integrate with your email service
-    // For now, we'll use mailto link or you can integrate with EmailJS, SendGrid, etc.
-    
+    // EmailJS Integration - Send actual emails
     try {
-      // Option 1: Using mailto (opens email client)
-      const mailtoLink = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
-      window.open(mailtoLink, '_blank');
+      console.log('📧 Sending email via EmailJS to:', recipientEmail);
       
-      // Option 2: If you have a backend API endpoint
-      // const response = await fetch('/api/send-email', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(emailData)
-      // });
+      // Load EmailJS if not already loaded
+      if (!window.emailjs) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+        
+        // Initialize EmailJS
+        window.emailjs.init('7v5wJOSuv1p_PkcU5'); // Your public key
+      }
+
+      // Prepare template parameters
+      const templateParams = {
+        from_name: senderName,
+        from_email: senderEmail,
+        phone: senderPhone,
+        message: message,
+        selected_units: selectedUnitsList.map(unit => `• ${unit}`).join('\n'),
+        to_email: recipientEmail,
+        reply_to: senderEmail // Add reply-to field
+      };
       
-      setTimeout(() => {
-        setIsSending(false);
-        alert('Request sent successfully!');
-        // Reset form
-        setSelectedUnits(new Set());
-        setMessage('');
-        setSenderName('');
-        setSenderEmail('');
-        setSenderPhone('');
-        onClose();
-      }, 1000);
-    } catch (error) {
+      console.log('🔍 Recipient email check:', recipientEmail);
+      console.log('🔍 Is recipient email empty?', !recipientEmail || recipientEmail.trim() === '');
+
+      console.log('📧 Template params:', templateParams);
+
+      // Send email using EmailJS
+      const response = await window.emailjs.send(
+        'service_q47lbr7', // Your service ID
+        'template_0zeil8m', // Your template ID
+        templateParams
+      );
+
+      console.log('✅ Email sent successfully:', response);
+      
       setIsSending(false);
-      alert('Failed to send request. Please try again.');
+      alert('Request has been successfully sent.');
+      
+      // Reset form
+      setSelectedUnits(new Set());
+      setMessage('');
+      setSenderName('');
+      setSenderEmail('');
+      setSenderPhone('');
+      onClose();
+      
+    } catch (error) {
+      console.error('❌ Email sending failed:', error);
+      console.error('❌ Full error object:', JSON.stringify(error, null, 2));
+      setIsSending(false);
+      alert(`Failed to send request: ${error.text || error.message || 'Unknown error'}. Please try again.`);
     }
   };
 

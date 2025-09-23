@@ -5,6 +5,24 @@
       "name": "Fifth Street Building",
       "children": [
         {
+          "name": "Ground Floor",
+          "children": [
+            "Club 76.glb",
+            "F-10.glb",
+            "F-15.glb",
+            "F-20.glb",
+            "F-25.glb",
+            "F-30.glb",
+            "F-35.glb",
+            "F-40.glb",
+            "F-50.glb",
+            "F-60.glb",
+            "F-70.glb",
+            "FG - Library.glb",
+            "FG - Restroom.glb"
+          ]
+        },
+        {
           "name": "First Floor",
           "children": [
             "F-100.glb",
@@ -21,24 +39,6 @@
             "F-187.glb",
             "F-190.glb",
             "F1 Restrooms.glb"
-          ]
-        },
-        {
-          "name": "Ground Floor",
-          "children": [
-            "Club 76.glb",
-            "F-10.glb",
-            "F-15.glb",
-            "F-20.glb",
-            "F-25.glb",
-            "F-30.glb",
-            "F-35.glb",
-            "F-40.glb",
-            "F-50.glb",
-            "F-60.glb",
-            "F-70.glb",
-            "FG - Library.glb",
-            "FG - Restroom.glb"
           ]
         },
         {
@@ -72,6 +72,18 @@
       "name": "Maryland Building",
       "children": [
         {
+          "name": "Ground Floor",
+          "children": [
+            "ET Lab.glb",
+            "M-20.glb",
+            "M-40.glb",
+            "M-45.glb",
+            "M-50.glb",
+            "MG - Stage 7 .glb",
+            "Studio O.M..glb"
+          ]
+        },
+        {
           "name": "First Floor",
           "children": [
             "M-120.glb",
@@ -84,18 +96,6 @@
             "M-180.glb",
             "M1 Resstroom 2.glb",
             "M1 Restrooms.glb"
-          ]
-        },
-        {
-          "name": "Ground Floor",
-          "children": [
-            "ET Lab.glb",
-            "M-20.glb",
-            "M-40.glb",
-            "M-45.glb",
-            "M-50.glb",
-            "MG - Stage 7 .glb",
-            "Studio O.M..glb"
           ]
         },
         {
@@ -128,10 +128,7 @@
       "name": "Tower Building",
       "children": [
         "T-100.glb",
-        "T-1000 .glb",
         "T-110.glb",
-        "T-1100 .glb",
-        "T-1200 .glb",
         "T-200.glb",
         "T-210.glb",
         "T-220.glb",
@@ -150,7 +147,10 @@
         "T-700 .glb",
         "T-800 .glb",
         "T-900 .glb",
-        "T-950.glb"
+        "T-950.glb",
+        "T-1000 .glb",
+        "T-1100 .glb",
+        "T-1200 .glb"
       ]
     }
   ]
