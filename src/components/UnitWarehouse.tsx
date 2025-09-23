@@ -8,6 +8,7 @@ import { UnitData, LoadedModel } from '../types';
 import { useFilterStore } from '../stores/useFilterStore';
 import FresnelMaterial from '../materials/FresnelMaterial';
 import PalmTreeInstancerSimple from './PalmTreeInstancerSimple';
+import { assetUrl } from '../lib/assets';
 
 class UnitWarehouseErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: any }> {
   constructor(props: { children: React.ReactNode }) {
@@ -33,7 +34,7 @@ class UnitWarehouseErrorBoundary extends React.Component<{ children: React.React
 
 
 function BoundingSphere({ onBoundingSphereData }: { onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void }) {
-  const { scene } = useGLTF(import.meta.env.BASE_URL + 'models/environment/white wall.glb');
+  const { scene } = useGLTF(assetUrl('models/environment/white wall.glb'));
 
   React.useEffect(() => {
     if (scene) {
@@ -91,8 +92,7 @@ const SingleModel: React.FC<{
   onLoad: (model: LoadedModel) => void;
   onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void;
 }> = React.memo(({ fileName, onLoad, onBoundingSphereData }) => {
-  const baseUrl = import.meta.env.BASE_URL;
-  const modelUrl = `${baseUrl}models/${fileName}`;
+  const modelUrl = assetUrl(`models/${fileName}`);
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -235,7 +235,7 @@ const SingleModel: React.FC<{
         'environment/transparent buildings.glb',
         'environment/transparents sidewalk.glb',
         'environment/white wall.glb',
-        'environment/frame raw 13.glb',
+        'environment/frame-raw-13.glb',
         'environment/roof and walls.glb',
         'environment/maryland street .glb'
       ]);
@@ -353,7 +353,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     'environment/transparent buildings.glb',
     'environment/transparents sidewalk.glb',
     'environment/white wall.glb',
-    'environment/frame raw 13.glb',
+    'environment/frame-raw-13.glb',
     'environment/roof and walls.glb',
     'environment/maryland street .glb'
   ], []);
