@@ -4,6 +4,7 @@ import { CameraControls, Environment } from '@react-three/drei';
 import { detectDevice, getMobileOptimizedSettings } from './utils/deviceDetection';
 import { MobileMemoryManager } from './utils/memoryManager';
 import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
+import { assetUrl } from './lib/assets';
 import { UnitWarehouse } from './components/UnitWarehouse';
 import UnitDetailPopup from './components/UnitDetailPopup';
 import { ExploreUnitsPanel } from './ui/ExploreUnitsPanel';
@@ -47,7 +48,7 @@ const StableHDRIEnvironment = React.memo(() => {
   return (
     <group position={[0, -8, 0]} key="stable-hdri">
       <Environment
-        files={`${import.meta.env.BASE_URL}textures/qwantani_noon_puresky_2k.hdr`}
+        files={assetUrl('textures/qwantani_noon_puresky_2k.hdr')}
         background={true}
         backgroundIntensity={1.0}
         environmentIntensity={0.75}
@@ -784,7 +785,7 @@ function App() {
               {/* Pulsating GIF Logo */}
               <div className="mb-8">
                 <img 
-                  src={import.meta.env.BASE_URL + "textures/333999.gif"} 
+                  src={assetUrl('textures/333999.gif')} 
                   alt="Loading" 
                   className="mx-auto mb-4 max-w-xs h-auto animate-pulse"
                   style={{ 
