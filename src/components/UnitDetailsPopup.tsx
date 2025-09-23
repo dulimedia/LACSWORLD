@@ -48,14 +48,6 @@ export const UnitDetailsPopup: React.FC<UnitDetailsPopupProps> = ({
     recipients: []
   } as UnitRecord;
 
-  // Debug logging
-  if (displayUnit.unit_name === 'F-200' || displayUnit.unit_name === 'M-20') {
-    console.log(`🔍 UnitDetailsPopup - ${displayUnit.unit_name} data:`, {
-      area_sqft: displayUnit.area_sqft,
-      size: displayUnit.size,
-      fullUnit: displayUnit
-    });
-  }
 
   // Check if this is a tower unit with individual floorplan
   const isTower = isTowerUnit(displayUnit.unit_name || '');

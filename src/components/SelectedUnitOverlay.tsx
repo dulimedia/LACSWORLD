@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import * as THREE from 'three';
+import { useThree, useFrame } from '@react-three/fiber';
 import { useGLBState } from '../store/glbState';
 import { createFresnelHighlightMaterial } from '../materials/FresnelHighlightMaterial';
 import { GHOST_MATERIAL_CONFIG } from '../config/ghostMaterialConfig';
@@ -16,9 +17,60 @@ export const SelectedUnitOverlay: React.FC = () => {
     getGLBsByFloor,
     glbNodes 
   } = useGLBState();
+  const { camera, scene } = useThree();
   const overlayGroupRef = useRef<THREE.Group>(null);
   const overlayMeshesRef = useRef<THREE.Mesh[]>([]);
+  const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
+  const lastCameraPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const needsOcclusionUpdateRef = useRef<boolean>(false);
   
+  // Function to detect occlusion between camera and unit
+  const detectOcclusion = (unitObject: THREE.Group): number => {
+    if (!camera || !scene) return 1.0; // No occlusion if camera/scene not available
+    
+    // Get the bounding box center of the unit
+    const box = new THREE.Box3().setFromObject(unitObject);
+    const unitCenter = box.getCenter(new THREE.Vector3());
+    
+    // Calculate direction from camera to unit center
+    const direction = new THREE.Vector3().subVectors(unitCenter, camera.position).normalize();
+    const distance = camera.position.distanceTo(unitCenter);
+    
+    // Set up raycaster from camera towards unit
+    raycasterRef.current.set(camera.position, direction);
+    raycasterRef.current.far = distance - 0.1; // Stop just before the unit
+    
+    // Get all objects that could cause occlusion (other building GLBs)
+    const occluders: THREE.Object3D[] = [];
+    scene.traverse((child) => {
+      // Only consider visible meshes that are NOT highlight overlays
+      if (child instanceof THREE.Mesh && 
+          child.visible && 
+          !child.userData.isHighlightOverlay &&
+          !unitObject.children.includes(child) && // Exclude the unit itself
+          child.material && 
+          child.material.opacity > 0.1) { // Only consider opaque objects
+        occluders.push(child);
+      }
+    });
+    
+    // Cast ray and check for intersections
+    const intersections = raycasterRef.current.intersectObjects(occluders, false);
+    
+    if (intersections.length > 0) {
+      // Calculate occlusion factor based on distance to first intersection
+      const firstIntersection = intersections[0];
+      const occlusionDistance = firstIntersection.distance;
+      const totalDistance = distance;
+      
+      // Dimming factor: closer occlusions cause more dimming
+      const occlusionFactor = Math.max(0.3, 1.0 - (occlusionDistance / totalDistance) * 0.7);
+      return occlusionFactor;
+    }
+    
+    return 1.0; // No occlusion
+  };
+
   // Create the Fresnel highlight material using configuration
   const fresnelMaterial = useMemo(() => {
     return createFresnelHighlightMaterial({
@@ -31,16 +83,29 @@ export const SelectedUnitOverlay: React.FC = () => {
     });
   }, []);
 
-  // Function to clone meshes from a GLB object and apply Fresnel material
+  // Function to clone meshes from a GLB object and apply Fresnel material with occlusion
   const createOverlayMeshes = (sourceObject: THREE.Group): THREE.Mesh[] => {
     const overlayMeshes: THREE.Mesh[] = [];
     
+    // Detect occlusion for this unit
+    const occlusionFactor = detectOcclusion(sourceObject);
+    
+    // Create material with adjusted opacity based on occlusion
+    const adjustedMaterial = createFresnelHighlightMaterial({
+      color: GHOST_MATERIAL_CONFIG.color,
+      opacity: GHOST_MATERIAL_CONFIG.opacity * occlusionFactor,
+      bias: GHOST_MATERIAL_CONFIG.fresnelBias,
+      scale: GHOST_MATERIAL_CONFIG.fresnelScale,
+      power: GHOST_MATERIAL_CONFIG.fresnelPower,
+      doubleSide: GHOST_MATERIAL_CONFIG.doubleSide
+    });
+    
     sourceObject.traverse((child) => {
       if (child instanceof THREE.Mesh && child.geometry) {
-        // Clone the mesh but with our highlight material
+        // Clone the mesh but with our occlusion-adjusted highlight material
         const overlayMesh = new THREE.Mesh(
           child.geometry.clone(),
-          fresnelMaterial
+          adjustedMaterial
         );
         
         // Copy transform from original mesh
@@ -54,6 +119,7 @@ export const SelectedUnitOverlay: React.FC = () => {
         // Set high render order to draw on top
         overlayMesh.renderOrder = 999;
         overlayMesh.userData.isHighlightOverlay = true;
+        overlayMesh.userData.occlusionFactor = occlusionFactor;
         
         overlayMeshes.push(overlayMesh);
       }
@@ -61,6 +127,77 @@ export const SelectedUnitOverlay: React.FC = () => {
     
     return overlayMeshes;
   };
+
+  // Function to update existing overlay opacity based on occlusion
+  const updateOcclusionForExistingOverlays = () => {
+    if (!overlayMeshesRef.current.length) return;
+    
+    // Group meshes by their source unit (assuming each unit creates multiple meshes)
+    const meshGroups = new Map<string, THREE.Mesh[]>();
+    
+    overlayMeshesRef.current.forEach(mesh => {
+      // Try to find the original unit object that this mesh belongs to
+      let sourceUnit: THREE.Group | null = null;
+      
+      // Find the source unit by checking all loaded GLB nodes
+      Array.from(glbNodes.values()).forEach(unitGLB => {
+        if (unitGLB.object && unitGLB.isLoaded) {
+          unitGLB.object.traverse((child) => {
+            if (child instanceof THREE.Mesh && 
+                child.geometry && 
+                mesh.geometry.uuid === child.geometry.uuid) {
+              sourceUnit = unitGLB.object;
+            }
+          });
+        }
+      });
+      
+      if (sourceUnit) {
+        const key = sourceUnit.uuid;
+        if (!meshGroups.has(key)) {
+          meshGroups.set(key, []);
+        }
+        meshGroups.get(key)!.push(mesh);
+      }
+    });
+    
+    // Update occlusion for each group
+    meshGroups.forEach((meshes, unitKey) => {
+      const sourceUnit = Array.from(glbNodes.values()).find(unit => 
+        unit.object && unit.object.uuid === unitKey
+      )?.object;
+      
+      if (sourceUnit) {
+        const occlusionFactor = detectOcclusion(sourceUnit);
+        
+        meshes.forEach(mesh => {
+          if (mesh.material && 'uniforms' in mesh.material && mesh.material.uniforms.uOpacity) {
+            mesh.material.uniforms.uOpacity.value = GHOST_MATERIAL_CONFIG.opacity * occlusionFactor;
+            mesh.userData.occlusionFactor = occlusionFactor;
+          }
+        });
+      }
+    });
+  };
+
+  // Detect camera movement and trigger occlusion updates
+  useFrame(() => {
+    if (!camera) return;
+    
+    const currentPosition = camera.position.clone();
+    const threshold = 0.1; // Minimum movement threshold to trigger update
+    
+    if (lastCameraPositionRef.current.distanceTo(currentPosition) > threshold) {
+      lastCameraPositionRef.current.copy(currentPosition);
+      needsOcclusionUpdateRef.current = true;
+    }
+    
+    // Update occlusion if needed and we have overlays
+    if (needsOcclusionUpdateRef.current && overlayMeshesRef.current.length > 0) {
+      updateOcclusionForExistingOverlays();
+      needsOcclusionUpdateRef.current = false;
+    }
+  });
 
   // Update overlay when selection changes
   useEffect(() => {
@@ -138,7 +275,12 @@ export const SelectedUnitOverlay: React.FC = () => {
           
           const selectionType = selectedUnit ? 'unit' : selectedFloor ? 'floor' : 'building';
           const selectionName = selectedUnit || selectedFloor || selectedBuilding;
-        console.log(`✨ Created highlight overlay for ${selectionType}: ${selectionName} (${unitsToHighlight.length} units, ${overlayMeshesRef.current.length} meshes)`);
+          
+          // Log occlusion factors for debugging
+          const occlusionFactors = overlayMeshesRef.current.map(mesh => mesh.userData.occlusionFactor).filter(f => f !== undefined);
+          const avgOcclusion = occlusionFactors.length > 0 ? occlusionFactors.reduce((a, b) => a + b, 0) / occlusionFactors.length : 1.0;
+          
+        console.log(`✨ Created highlight overlay for ${selectionType}: ${selectionName} (${unitsToHighlight.length} units, ${overlayMeshesRef.current.length} meshes, avg occlusion: ${avgOcclusion.toFixed(2)})`);
       } catch (error) {
         console.error('Error creating overlay:', error);
       }
@@ -146,7 +288,7 @@ export const SelectedUnitOverlay: React.FC = () => {
     }, 50); // 50ms delay to ensure original mesh is hidden
     
     return () => clearTimeout(timeoutId);
-  }, [hoveredFloor, hoveredUnit, selectedUnit, selectedBuilding, selectedFloor, getGLBByUnit, getGLBsByBuilding, getGLBsByFloor, glbNodes, fresnelMaterial]);
+  }, [hoveredFloor, hoveredUnit, selectedUnit, selectedBuilding, selectedFloor, getGLBByUnit, getGLBsByBuilding, getGLBsByFloor, glbNodes, fresnelMaterial, camera]);
 
   // Cleanup on unmount
   useEffect(() => {

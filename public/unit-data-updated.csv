@@ -22,8 +22,8 @@ F-360,Available,2611 RSF,"Central Air • Storage • Corner Unit • Natural Li
 F-363,Available,702 RSF,"Central Air • Storage • Efficient Unit",/floorplans/converted/f363.jpg,Fifth Street Building,Third Floor,Suite,None,dulimediallc@gmail.com
 F-365,Available,1950 RSF,"Central Air • Storage • Collaboration Spaces",/floorplans/converted/f365.jpg,Fifth Street Building,Third Floor,Suite,Kitchen,dulimediallc@gmail.com
 F-380,Available,2500 RSF,"Central Air • In-unit Laundry • Storage • Premium Corner • Stunning Views",/floorplans/converted/f380.jpg,Fifth Street Building,Third Floor,Suite,Kitchen,dulimediallc@gmail.com
-F-10,Occupied,1200 RSF,"Central Air • Loading dock access",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None
-F-15,Occupied,1500 RSF,"Central Air • Large ground floor space",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None
+F-10,Occupied,1200 RSF,"Central Air • Loading dock access",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None,dulimediallc@gmail.com
+F-15,Occupied,1500 RSF,"Central Air • Large ground floor space",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None,dulimediallc@gmail.com
 F-20,Available,1800 RSF,"Central Air • Premium floor unit",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None,dulimediallc@gmail.com
 F-25,Available,1400 RSF,"Central Air • Standard floor unit",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None,dulimediallc@gmail.com
 F-30,Available,2000 RSF,"Central Air • Large floor unit",/floorplans/FGFloor_LACS_page_1.png,Fifth Street Building,Ground Floor,Suite,None,dulimediallc@gmail.com
@@ -86,7 +86,7 @@ T-1200,Available,3000 RSF,"Central Air • In-unit Laundry • Storage • Premi
 Stage A,Available,2500 RSF,"Stage Lighting • Sound System • Green Room • Loading Dock",/floorplans/stage-a.jpg,Stages,,Stage,None,dulimediallc@gmail.com
 Stage B,Available,3000 RSF,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/stage-b.jpg,Stages,,Stage,None,dulimediallc@gmail.com
 Stage C,Available,2200 RSF,"Stage Lighting • Sound System • Green Room",/floorplans/stage-c.jpg,Stages,,Stage,None,dulimediallc@gmail.com
-Stage D,Occupied,2800 RSF,"Stage Lighting • Sound System • Green Room • Loading Dock",/floorplans/stage-d.jpg,Stages,,Stage,None
+Stage D,Occupied,2800 RSF,"Stage Lighting • Sound System • Green Room • Loading Dock",/floorplans/stage-d.jpg,Stages,,Stage,None,dulimediallc@gmail.com
 Stage E,Available,1800 RSF,"Stage Lighting • Sound System",/floorplans/stage-e.jpg,Stages,,Stage,None,dulimediallc@gmail.com
 Stage F,Available,2400 RSF,"Stage Lighting • Sound System • Green Room",/floorplans/stage-f.jpg,Stages,,Stage,None,dulimediallc@gmail.com
 Stage 7,Available,3200 RSF,"Stage Lighting • Sound System • Green Room • Loading Dock • Premium",/floorplans/converted/mg-floorplan.jpg,Stages,,Stage,Kitchenette,dulimediallc@gmail.com
@@ -96,6 +96,3 @@ C-110,Available,880 RSF,"Central Air • In-unit Laundry",/floorplans/chicago-fl
 C-115,Available,650 RSF,"Central Air • Storage",/floorplans/chicago-floor-1.jpg,Chicago Building,First Floor,Stage,None,dulimediallc@gmail.com
 C-200,Available,920 RSF,"Central Air • In-unit Laundry • Storage",/floorplans/chicago-floor-2.jpg,Chicago Building,Second Floor,Suite,Kitchen,dulimediallc@gmail.com
 C-210,Available,1050 RSF,"Central Air • In-unit Laundry • Storage • Balcony",/floorplans/chicago-floor-2.jpg,Chicago Building,Second Floor,Suite,Kitchen,dulimediallc@gmail.com
-
-# Global Configuration
-DEFAULT_EMAIL_RECIPIENTS,CONFIG,,,,,,,, lacenterstudios3d@gmail.com

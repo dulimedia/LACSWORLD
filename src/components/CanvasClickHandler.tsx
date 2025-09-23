@@ -6,6 +6,7 @@ import { useUnitStore } from '../stores/useUnitStore';
 
 export const CanvasClickHandler: React.FC = () => {
   const { gl } = useThree();
+  const { setDrawerOpen } = useExploreState();
 
   React.useEffect(() => {
     const canvas = gl.domElement;
@@ -14,8 +15,9 @@ export const CanvasClickHandler: React.FC = () => {
       // Only handle clicks on the canvas background (not on UI elements)
       const target = event.target as HTMLElement;
       if (target === canvas) {
-        // Preserve all selections when navigating 3D scene
-        console.log('🖱️ Canvas background clicked - all selections preserved');
+        // Close explore units panel when clicking off into 3D scene
+        setDrawerOpen(false);
+        console.log('🖱️ Canvas background clicked - explore units panel closed');
       }
     };
 

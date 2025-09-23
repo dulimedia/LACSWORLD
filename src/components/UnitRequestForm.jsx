@@ -11,8 +11,8 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
   const [expandedBuildings, setExpandedBuildings] = useState(new Set());
   const [isSending, setIsSending] = useState(false);
   
-  // Get CSV data for live availability updates - use same source as main app
-  const CSV_URL = `${import.meta.env.BASE_URL}unit-data-updated.csv`;
+  // Google Sheets CSV data source - published public spreadsheet
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRDfR23epOzgSvWy5zup1Uk5W1X-QJsrQp3yzXlN1MvZHCfEZqZrF8Rf2SrP81eNhWVPtX9olHf_wCT/pub?output=csv';
   const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
 
   // Generate units structure from CSV data, filtering only available units
@@ -25,9 +25,11 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
     
     // Process each unit from CSV data
     Object.values(csvUnitData).forEach(unitData => {
-      // Only include available units - check multiple possible fields safely
+      // Only include available units - check for 1/0 format and boolean values
       const isAvailable = unitData.status === true || 
-                         unitData.availability === true || 
+                         unitData.availability === true ||
+                         unitData.status === 1 ||
+                         unitData.availability === 1 ||
                          (typeof unitData.availability === 'string' && unitData.availability.toLowerCase() === 'available') ||
                          (typeof unitData.status === 'string' && unitData.status.toLowerCase() === 'available');
       if (!isAvailable) {

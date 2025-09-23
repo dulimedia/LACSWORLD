@@ -9,7 +9,7 @@ interface NavigationControlsProps {
   onResetView: () => void;
 }
 
-export const NavigationControls: React.FC<NavigationControlsProps> = ({
+export const NavigationControls: React.FC<NavigationControlsProps> = React.memo(({
   onRotateLeft,
   onRotateRight,
   onZoomIn,
@@ -79,4 +79,4 @@ export const NavigationControls: React.FC<NavigationControlsProps> = ({
       </div>
     </div>
   );
-}; 
+}); 

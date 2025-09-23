@@ -63,8 +63,8 @@ export class MobileMemoryManager {
     }
   }
 
-  // Aggressive cleanup - force garbage collection
-  private aggressiveCleanup() {
+  // Aggressive cleanup - force garbage collection (now public for external access)
+  aggressiveCleanup() {
     // Clear all caches
     this.textureCache.forEach(texture => texture.dispose());
     this.textureCache.clear();

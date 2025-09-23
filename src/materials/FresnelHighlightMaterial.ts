@@ -59,15 +59,15 @@ export function createFresnelHighlightMaterial({
         float fresnel = uBias + uScale * pow(1.0 - max(dot(vNormal, cameraToFrag), 0.0), uPower);
         fresnel = clamp(fresnel, 0.0, 1.0);
 
-        // Subtle translucent edge color - reduced intensity for better readability
-        vec3 col = uColor * (0.3 + 0.5 * fresnel);  // Reduced from 0.4 + 0.6
+        // Maximum visibility translucent edge color - significantly increased intensity
+        vec3 col = uColor * (0.6 + 1.0 * fresnel);  // Increased from 0.4 + 0.7
         
-        // Subtle edge glow - reduced bloom for less overpowering effect
-        float bloomBoost = fresnel * 1.2; // Reduced from 2.0
-        col = col + uColor * bloomBoost * 0.2; // Reduced from 0.3
+        // Maximum bloom effect for maximum visibility
+        float bloomBoost = fresnel * 3.5; // Increased from 2.5
+        col = col + uColor * bloomBoost * 0.6; // Increased from 0.4
         
-        // Apply opacity with fresnel-based variation for depth
-        float finalOpacity = uOpacity * (0.7 + 0.3 * fresnel);
+        // Apply enhanced opacity with fresnel-based variation for maximum visibility
+        float finalOpacity = uOpacity * (0.9 + 0.4 * fresnel); // Increased from 0.7 + 0.3
         gl_FragColor = vec4(col, finalOpacity);
       }
     `

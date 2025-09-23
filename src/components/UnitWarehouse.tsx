@@ -3,7 +3,6 @@ import { useGLTF } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Mesh, Object3D, MeshStandardMaterial, MeshPhysicalMaterial, Material, Color } from 'three';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { FALLBACK_UNIT_DATA } from '../App';
 import { UnitData, LoadedModel } from '../types';
 import { useFilterStore } from '../stores/useFilterStore';
@@ -32,259 +31,18 @@ class UnitWarehouseErrorBoundary extends React.Component<{ children: React.React
   }
 }
 
-function HDRIEnvironment() {
-  const { scene, gl } = useThree();
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    try {
-      console.log('🌅 Loading HDRI environment...');
-
-      // Set immediate fallback background
-      scene.background = new THREE.Color(0x87CEEB);
-      
-      // Add WebGL context lost/restored handlers
-      const canvas = gl.domElement;
-      canvas.addEventListener('webglcontextlost', (event) => {
-        console.warn('🚫 WebGL context lost, preventing default');
-        console.warn('🚫 Context lost reason:', event.statusMessage || 'Unknown');
-        event.preventDefault();
-        
-        // Clean up problematic materials to prevent re-occurrence
-        scene.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.material) {
-            try {
-              const isProblematic = (mat: any) => 
-                mat?.name?.toLowerCase().includes('transparents') || 
-                mat?.name?.toLowerCase().includes('sidewalk');
-              
-              if (Array.isArray(child.material)) {
-                child.material.forEach((mat, index) => {
-                  if (isProblematic(mat)) {
-                    console.warn('🧼 Replacing problematic material:', mat.name);
-                    child.material[index] = new THREE.MeshBasicMaterial({ color: 0x888888 });
-                  }
-                });
-              } else if (isProblematic(child.material)) {
-                console.warn('🧼 Replacing problematic material:', child.material.name);
-                child.material = new THREE.MeshBasicMaterial({ color: 0x888888 });
-              }
-            } catch (error) {
-              console.error('⚠️ Error cleaning material:', error);
-            }
-          }
-        });
-      });
-      
-      canvas.addEventListener('webglcontextrestored', () => {
-        console.log('✅ WebGL context restored, reloading scene');
-        // Clear any existing materials and textures
-        scene.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach(mat => mat.dispose());
-              } else {
-                child.material.dispose();
-              }
-            }
-            if (child.geometry) {
-              child.geometry.dispose();
-            }
-          }
-        });
-        // Force garbage collection and restart
-        setTimeout(() => window.location.reload(), 100);
-      });
-
-      const loader = new RGBELoader();
-
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(() => loadHDRI());
-      } else {
-        setTimeout(() => loadHDRI(), 100);
-      }
-
-      function applyFallbackEnvironment() {
-        console.log('🔄 Applying fallback environment...');
-
-        const gradientTexture = new THREE.DataTexture(
-          new Uint8Array([
-            135, 206, 235, 255, // Sky blue top
-            255, 255, 255, 255, // White bottom
-          ]),
-          1, 2, THREE.RGBAFormat
-        );
-        gradientTexture.needsUpdate = true;
-        gradientTexture.mapping = THREE.EquirectangularReflectionMapping;
-
-        scene.environment = gradientTexture;
-        scene.background = new THREE.Color(0x87CEEB); // Sky blue background
-
-        scene.traverse((child: any) => {
-          if (child.isMesh && child.material) {
-            const processMaterial = (mat: THREE.Material) => {
-              // Skip invalid materials only
-              if (!mat) {
-                console.warn('⚠️ Skipping invalid material:', mat?.name);
-                return;
-              }
-              
-              if (mat instanceof THREE.MeshStandardMaterial) {
-                // Detect glass materials
-                const isLikelyGlass = 
-                  mat.name?.toLowerCase().includes('glass') ||
-                  child.name?.toLowerCase().includes('glass') ||
-                  (mat.transparent && mat.opacity > 0.7 && mat.metalness === 0);
-
-                if (isLikelyGlass) {
-                  // Convert to PhysicalMaterial for proper glass rendering
-                  const physicalMat = new THREE.MeshPhysicalMaterial({
-                    transmission: 0.9,
-                    thickness: 0.3,
-                    ior: 1.5,
-                    roughness: 0.18,
-                    metalness: 0.0,
-                    envMapIntensity: 0.25, // key: lower for non-blown reflections
-                    attenuationColor: new THREE.Color('#eef3f7'), // very light gray-blue
-                    attenuationDistance: 3.0,
-                    clearcoat: 0.0,
-                    side: THREE.FrontSide,
-                  });
-
-                  // Copy basic properties from original material
-                  physicalMat.name = mat.name;
-                  if (mat.map) physicalMat.map = mat.map;
-                  if (mat.normalMap) physicalMat.normalMap = mat.normalMap;
-                  if (mat.roughnessMap) physicalMat.roughnessMap = mat.roughnessMap;
-                  if (mat.metalnessMap) physicalMat.metalnessMap = mat.metalnessMap;
-                  
-                  // But ensure critical glass params overwrite
-                  physicalMat.transmission = 0.9;
-                  physicalMat.roughness = 0.18;
-                  physicalMat.envMapIntensity = 0.25;
-                  physicalMat.ior = 1.5;
-                  physicalMat.thickness = 0.3;
-                  physicalMat.metalness = 0.0;
-                  physicalMat.clearcoat = 0.0;
-                  
-                  return physicalMat;
-                } else {
-                  // Non-glass: keep sane reflection levels
-                  mat.envMapIntensity = 0.6; // further increased for brighter, less contrasted scene
-                  mat.needsUpdate = true;
-                  return mat;
-                }
-              }
-              return mat;
-            };
-
-            if (Array.isArray(child.material)) {
-              child.material = child.material.map(processMaterial);
-            } else {
-              child.material = processMaterial(child.material);
-            }
-          }
-        });
-
-        setIsLoading(false);
-        console.log('✅ Fallback environment applied');
-      }
-
-      function loadHDRI() {
-        try {
-          loader.load(
-            `${import.meta.env.BASE_URL}textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr`,
-            (texture) => {
-              try {
-                console.log('✅ HDRI loaded successfully:', texture);
-                texture.mapping = THREE.EquirectangularReflectionMapping;
-
-                const pmremGenerator = new THREE.PMREMGenerator(gl);
-                pmremGenerator.compileEquirectangularShader();
-                const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-
-                texture.dispose();
-
-                scene.environment = envMap;
-                scene.background = envMap;
-
-                const materialsToUpdate: THREE.MeshStandardMaterial[] = [];
-                scene.traverse((child: any) => {
-                  if (child.isMesh && child.material) {
-                    if (Array.isArray(child.material)) {
-                      child.material.forEach((mat: THREE.Material) => {
-                        // Skip invalid materials only
-                        if (!mat) {
-                          console.warn('⚠️ Skipping invalid material in array:', mat?.name);
-                          return;
-                        }
-                        if (mat instanceof THREE.MeshStandardMaterial) {
-                          mat.envMapIntensity = 1.0; // further increased for brighter, less contrasted scene
-                          mat.roughness = Math.max(mat.roughness, 0.3); // increase roughness to reduce sharp reflections
-                          materialsToUpdate.push(mat);
-                        }
-                      });
-                    } else if (child.material instanceof THREE.MeshStandardMaterial) {
-                      // Skip invalid materials only
-                      if (!child.material) {
-                        console.warn('⚠️ Skipping invalid single material');
-                        return;
-                      }
-                      child.material.envMapIntensity = 1.0; // further increased for brighter, less contrasted scene
-                      child.material.roughness = Math.max(child.material.roughness, 0.3); // increase roughness to reduce sharp reflections
-                      materialsToUpdate.push(child.material);
-                    }
-                  }
-                });
-
-                materialsToUpdate.forEach(mat => mat.needsUpdate = true);
-
-                pmremGenerator.dispose();
-
-                setIsLoading(false);
-                console.log('🌍 HDRI environment (PMREM) applied to scene');
-
-              } catch (e) {
-                console.error('Error applying HDRI texture:', e);
-                applyFallbackEnvironment();
-              } finally {
-                setIsLoading(false);
-              }
-            },
-            undefined,
-            (error) => {
-              console.error('❌ Failed to load HDRI:', error);
-              applyFallbackEnvironment();
-            }
-          );
-        } catch (e) {
-          console.error('Unexpected error loading HDRI:', e);
-          applyFallbackEnvironment();
-        }
-      }
-    } catch (e) {
-      console.error('Unexpected error in HDRIEnvironment effect:', e);
-      setIsLoading(false);
-    }
-  }, [scene, gl]);
-
-  return null;
-}
 
 function BoundingSphere({ onBoundingSphereData }: { onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void }) {
   const { scene } = useGLTF(import.meta.env.BASE_URL + 'models/environment/white wall.glb');
 
   React.useEffect(() => {
     if (scene) {
-      console.log('🔵 Bounding sphere loaded:', scene);
 
       const box = new THREE.Box3().setFromObject(scene);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       const radius = Math.max(size.x, size.y, size.z) / 2;
 
-      console.log('📐 Bounding sphere - Center:', center, 'Radius:', radius);
 
       if (onBoundingSphereData) {
         onBoundingSphereData({ center, radius });
@@ -355,7 +113,6 @@ const SingleModel: React.FC<{
 
   useEffect(() => {
     if (fileName.startsWith('boxes/')) {
-      console.log('📦 Loading box model:', fileName);
     }
   }, []);
 
@@ -452,7 +209,6 @@ const SingleModel: React.FC<{
               setTimeout(() => processBatch(), 0);
             }
           } else {
-            console.log(`✅ Processed ${meshesToProcess.length} meshes for ${fileName}`);
           }
         };
 
@@ -479,7 +235,7 @@ const SingleModel: React.FC<{
         'environment/transparent buildings.glb',
         'environment/transparents sidewalk.glb',
         'environment/white wall.glb',
-        'environment/FRAME 4.glb',
+        'environment/frame raw 13.glb',
         'environment/roof and walls.glb',
         'environment/maryland street .glb'
       ]);
@@ -491,15 +247,13 @@ const SingleModel: React.FC<{
         const bbox = new THREE.Box3().setFromObject(scene);
         const center = bbox.getCenter(new THREE.Vector3());
         const size = bbox.getSize(new THREE.Vector3());
-        console.log(`📐 Model bbox center for ${modelName}: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}) size: (${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)})`);
-        scene.position.set(-center.x, -center.y, -center.z);
+        scene.position.set(-center.x, -center.y - 3, -center.z);
         scene.rotation.set(0, 0, 0);
         if ((scene as any).quaternion && typeof (scene as any).quaternion.identity === 'function') {
           (scene as any).quaternion.identity();
         }
         scene.updateMatrixWorld(true);
       } else {
-        console.log(`↩️ Preserving original transform for consolidated model: ${fileName}`);
       }
 
       scene.updateMatrixWorld(true);
@@ -599,7 +353,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     'environment/transparent buildings.glb',
     'environment/transparents sidewalk.glb',
     'environment/white wall.glb',
-    'environment/FRAME 4.glb',
+    'environment/frame raw 13.glb',
     'environment/roof and walls.glb',
     'environment/maryland street .glb'
   ], []);
@@ -647,7 +401,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
 
     if (loadedBoxModelsCollection.current.length === boxFiles.length) {
       setBoxLoadedModels(loadedBoxModelsCollection.current);
-      console.log('📦✅ All box models loaded and state updated once!');
     }
 
     if (meshCount === 0) {
@@ -697,7 +450,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     const activeUnits = activeUnitsList;
 
     if (activeUnits.length > 0) {
-      console.log('🎯 FILTER ACTIVATED:', activeUnits);
     }
 
     let activatedCount = 0;
@@ -735,10 +487,8 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     });
 
     if (activatedCount > 0) {
-      console.log(`✅ ACTIVATED ${activatedCount} meshes`);
     }
     if (hiddenByAvailabilityCount > 0) {
-      console.log(`🚫 HIDDEN ${hiddenByAvailabilityCount} unavailable units`);
     }
     if (activeUnits.length > 0 && activatedCount === 0) {
       console.warn(`❌ FILTER SET but NO MESHES ACTIVATED! Available models:`, boxLoadedModels.map(m => m.name));
@@ -761,7 +511,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     // Only show selection highlight if unit is available
     const isAvailable = isUnitAvailable(selectedUnit);
     if (!isAvailable) {
-      console.log(`🚫 Cannot highlight unavailable unit: ${selectedUnit}`);
       return;
     }
 
@@ -801,7 +550,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       const isAvailable = isUnitAvailable(filterHoveredUnit);
       
       if (!isAvailable) {
-        console.log(`🚫 Cannot hover unavailable unit: ${filterHoveredUnit}`);
         return;
       }
 
@@ -828,7 +576,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
 
   useEffect(() => {
     if (modelsLoaded && !areBoxesLoaded) {
-      console.log('📦 Main models loaded, now loading boxes...');
       setAreBoxesLoaded(true);
     }
   }, [modelsLoaded, areBoxesLoaded]);
@@ -899,7 +646,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
 
   return (
     <group ref={groupRef} position={[0, 0, 0]}>
-      <HDRIEnvironment />
       <BoundingSphere onBoundingSphereData={setBoundingSphereData} />
       {allModels.map((fileName, index) => (
         <SingleModel
@@ -909,14 +655,11 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
         />
       ))}
       {areBoxesLoaded && (() => {
-        console.log('📦✅ Boxes are loaded, now rendering...');
         try {
           if (!boxFiles || boxFiles.length === 0) {
-            console.log('No box files to render.');
             return null;
           }
 
-          console.log(`📦 Rendering ${boxFiles.length} box models...`);
 
           return boxFiles.map((boxPath) => (
             <SingleModel

@@ -31,7 +31,7 @@ const filenameToUnitName = (filename: string) => {
 
 type TreeNode = { name: string; children?: Array<TreeNode | string> };
 
-export const FilterDropdown: React.FC<FilterDropdownProps> = ({
+export const FilterDropdown: React.FC<FilterDropdownProps> = React.memo(({
   unitData,
   onUnitHover,
   isOpen: externalIsOpen,
@@ -261,4 +261,4 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = ({
       </div>
     </div>
   );
-};
+});

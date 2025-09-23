@@ -470,6 +470,79 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   // Card navigation state
   const [currentView, setCurrentView] = useState<'explore' | 'details'>('explore');
   const [selectedUnitDetails, setSelectedUnitDetails] = useState<any>(null);
+  
+  // Unit request modal state
+  const [showUnitRequestModal, setShowUnitRequestModal] = useState(false);
+  const [requestFormData, setRequestFormData] = useState({
+    senderName: '',
+    senderEmail: '',
+    senderPhone: '',
+    message: ''
+  });
+  const [isSendingRequest, setIsSendingRequest] = useState(false);
+  
+  // Function to send individual unit request via EmailJS
+  const sendUnitRequest = async () => {
+    if (!selectedUnitDetails || !requestFormData.senderName || !requestFormData.senderEmail) {
+      alert('Please fill in your name and email address.');
+      return;
+    }
+    
+    setIsSendingRequest(true);
+    
+    try {
+      // Load EmailJS if not already loaded
+      if (!window.emailjs) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+        
+        // Initialize EmailJS
+        window.emailjs.init('7v5wJOSuv1p_PkcU5');
+      }
+
+      // Use the same recipient email as UnitRequestForm
+      const recipientEmail = 'lacenterstudios3d@gmail.com';
+      
+      // Prepare template parameters for single unit request
+      const templateParams = {
+        from_name: requestFormData.senderName,
+        from_email: requestFormData.senderEmail,
+        phone: requestFormData.senderPhone || 'Not provided',
+        message: requestFormData.message || 'No additional message provided.',
+        selected_units: `• ${selectedUnitDetails.building}/${selectedUnitDetails.floor}/${selectedUnitDetails.unit_name}`,
+        to_email: recipientEmail,
+        reply_to: requestFormData.senderEmail
+      };
+
+      // Send email using EmailJS with same service and template
+      const response = await window.emailjs.send(
+        'service_q47lbr7', // Same service ID
+        'template_0zeil8m', // Same template ID
+        templateParams
+      );
+
+      console.log('✅ Individual unit request sent successfully:', response);
+      
+      setIsSendingRequest(false);
+      alert('Your unit request has been sent successfully!');
+      
+      // Reset form and close modal
+      setRequestFormData({
+        senderName: '',
+        senderEmail: '',
+        senderPhone: '',
+        message: ''
+      });
+      setShowUnitRequestModal(false);
+      
+    } catch (error) {
+      console.error('❌ Unit request failed:', error);
+      setIsSendingRequest(false);
+      alert(`Failed to send request: ${error.text || error.message || 'Unknown error'}. Please try again.`);
+    }
+  };
 
   // Resizing state with mobile-responsive defaults
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -1416,7 +1489,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     <p className="text-sm font-medium text-gray-500">Area</p>
                     <p className="text-lg font-semibold text-gray-900">
                       {selectedUnitDetails?.area_sqft 
-                        ? `${selectedUnitDetails.area_sqft.toLocaleString()} sq ft`
+                        ? `${selectedUnitDetails.area_sqft.toLocaleString()} RSF`
                         : 'N/A'
                       }
                     </p>
@@ -1443,7 +1516,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                           {kitchenSize === 'Full' ? 'Full Kitchen' :
                            kitchenSize === 'Compact' ? 'Compact Kitchen' :
                            kitchenSize === 'Kitchenette' ? 'Kitchenette' :
-                           `Kitchen: ${kitchenSize}`}
+                           kitchenSize}
                         </p>
                       </div>
                     );
@@ -1480,26 +1553,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   <button
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-150 flex items-center justify-center space-x-2"
                     onClick={() => {
-                      if (onRequest) {
-                        if (selectedUnitDetails) {
-                          // Use the actual unit data
-                          onRequest(selectedUnitDetails.unit_key || selectedUnitDetails.unit_name, selectedUnitDetails.unit_name);
-                        } else {
-                          // Try to get unit data from the selected unit key in the global state
-                          const { selectedUnitKey } = useExploreState.getState();
-                          
-                          // Try to get unit data for the selected key
-                          const unitData = getUnitData(selectedUnitKey || '');
-                          
-                          if (unitData) {
-                            onRequest(unitData.unit_key, unitData.unit_name);
-                          } else {
-                            // Last fallback - use the selected unit key directly
-                            const displayName = selectedUnitKey || 'Selected Unit';
-                            onRequest(selectedUnitKey || 'unknown', displayName);
-                          }
-                        }
-                      }
+                      setShowUnitRequestModal(true);
                     }}
                   >
                     <MessageCircle size={16} />
@@ -1552,6 +1606,123 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
 
 
       {/* Hover Preview moved to App.tsx for global positioning */}
+      
+      {/* Unit Request Modal */}
+      {showUnitRequestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-bold">Request Unit</h2>
+              <button
+                onClick={() => setShowUnitRequestModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-4">
+                {/* Unit Info */}
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h3 className="font-semibold text-gray-900">{selectedUnitDetails?.unit_name}</h3>
+                  <p className="text-sm text-gray-600">
+                    {selectedUnitDetails?.building} • {selectedUnitDetails?.floor}
+                  </p>
+                </div>
+
+                {/* Contact Form */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={requestFormData.senderName}
+                      onChange={(e) => setRequestFormData(prev => ({ ...prev, senderName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Enter your name"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={requestFormData.senderEmail}
+                      onChange={(e) => setRequestFormData(prev => ({ ...prev, senderEmail: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Enter your email"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={requestFormData.senderPhone}
+                      onChange={(e) => setRequestFormData(prev => ({ ...prev, senderPhone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Message
+                    </label>
+                    <textarea
+                      value={requestFormData.message}
+                      onChange={(e) => setRequestFormData(prev => ({ ...prev, message: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                      rows={3}
+                      placeholder="Tell us about your interest in this unit..."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 p-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowUnitRequestModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={sendUnitRequest}
+                disabled={isSendingRequest || !requestFormData.senderName || !requestFormData.senderEmail}
+                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSendingRequest ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle size={16} />
+                    Send Request
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

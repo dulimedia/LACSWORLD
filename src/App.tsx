@@ -38,8 +38,26 @@ function AdaptivePixelRatio() {
   return null;
 }
 
-// Local CSV data source - use absolute path for GitHub Pages
-const CSV_URL = `${import.meta.env.BASE_URL}unit-data-updated.csv`;
+// Google Sheets CSV data source - published as CSV format
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRDfR23epOzgSvWy5zup1Uk5W1X-QJsrQp3yzXlN1MvZHCfEZqZrF8Rf2SrP81eNhWVPtX9olHf_wCT/pub?output=csv';
+
+// Stable HDRI Environment Component - memoized and keyed to prevent re-renders
+const StableHDRIEnvironment = React.memo(() => {
+  console.log('🌍 HDRI Environment rendered/re-rendered');
+  return (
+    <group position={[0, -8, 0]} key="stable-hdri">
+      <Environment
+        files={`${import.meta.env.BASE_URL}textures/qwantani_noon_puresky_2k.hdr`}
+        background={true}
+        backgroundIntensity={1.0}
+        environmentIntensity={0.75}
+        backgroundBlurriness={0.05}
+        backgroundRotation={[0, 0, 0]}
+        resolution={256}
+      />
+    </group>
+  );
+}, () => true); // Always return true to prevent any re-renders
 
 // Simple Error Boundary for HDRI loading
 class HDRIErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -549,7 +567,7 @@ function App() {
           status: unitData.status === true, // Convert to boolean as expected by UnitStatus type
           area_sqft: unitData.area_sqft || undefined,
           floorplan_url: unitData.floorplan || unitData.floorPlanUrl || unitData.floorplan_url,
-          recipients: ['owner@lacenter.com'], // Default recipient
+          recipients: unitData.email_recipients ? [unitData.email_recipients] : ['owner@lacenter.com'], // Use CSV email or default
           kitchen_size: unitData.kitchen_size,
           unit_type: unitData.unit_type || 'Suite' // Copy unit type from CSV data
         };
@@ -823,11 +841,19 @@ function App() {
             <fog attach="fog" args={['#ffffff', 15, 60]} />
           )}
           
-          {/* Key directional light - simplified for mobile */}
+          {/* Enhanced sunlight for better scene lighting */}
           <directionalLight
-            position={[20, 25, 15]}
-            intensity={deviceCapabilities.isMobile ? 0.5 : 0.72}
-            color="#ffffff"
+            position={[30, 40, 20]}
+            intensity={deviceCapabilities.isMobile ? 0.8 : 1.2}
+            color="#fff8e1"
+            castShadow={false}
+          />
+          
+          {/* Additional fill light for shadows */}
+          <directionalLight
+            position={[-15, 20, -10]}
+            intensity={deviceCapabilities.isMobile ? 0.3 : 0.5}
+            color="#e3f2fd"
             castShadow={false}
           />
 
@@ -856,17 +882,10 @@ function App() {
             // Simple sky gradient for mobile devices
             <color attach="background" args={['#87CEEB']} />
           ) : (
-            // Full HDRI environment for desktop
+            // Full HDRI environment for desktop - isolated to prevent re-renders
             <HDRIErrorBoundary>
               <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
-                <Environment
-                  files={`${import.meta.env.BASE_URL}textures/kloofendal_43d_clear_puresky_4k.hdr`}
-                  background={true}
-                  backgroundIntensity={0.45}
-                  environmentIntensity={0.54}
-                  backgroundBlurriness={0.05}
-                  resolution={256}
-                />
+                <StableHDRIEnvironment />
               </React.Suspense>
             </HDRIErrorBoundary>
           )}

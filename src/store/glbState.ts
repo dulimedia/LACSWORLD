@@ -251,7 +251,6 @@ export const useGLBState = create<GLBState>((set, get) => ({
   selectUnit: (building: string | null, floor: string | null, unit: string | null, skipCameraAnimation = false) => {
     const { glbNodes, isCameraAnimating } = get();
     
-    console.log('🎯 selectUnit called:', { building, floor, unit, skipCameraAnimation, isCameraAnimating });
     
     // Reset all GLBs to invisible first
     glbNodes.forEach((node, key) => {
@@ -262,23 +261,18 @@ export const useGLBState = create<GLBState>((set, get) => ({
       // Set only the specific unit GLB to glowing
       const unitGLB = get().getGLBByUnit(building, floor, unit);
       
-      console.log('🏢 Found unitGLB for selection:', !!unitGLB, unitGLB?.key);
       
       if (unitGLB) {
         get().setGLBState(unitGLB.key, 'glowing');
         
         // Only animate camera on initial selection, not when restoring state
         if (!skipCameraAnimation) {
-          console.log('📹 Calling centerCameraOnUnit...');
           get().centerCameraOnUnit(building, floor, unit);
         } else {
-          console.log('📹 Skipping camera animation (skipCameraAnimation = true)');
         }
       } else {
-        console.log('❌ No GLB found for unit:', { building, floor, unit });
       }
     } else {
-      console.log('❌ Invalid unit selection parameters:', { building, unit, floor });
     }
     
     set({ 
@@ -457,11 +451,8 @@ export const useGLBState = create<GLBState>((set, get) => ({
       key = `${building}/${floor}/${unit}`;
     }
     
-    console.log('🔍 Looking for GLB unit with key:', key);
-    console.log('🗂️ Available GLB keys:', Array.from(glbNodes.keys()));
     
     const result = glbNodes.get(key);
-    console.log('🎯 GLB lookup result:', result ? 'FOUND' : 'NOT FOUND');
     
     return result;
   },
@@ -515,72 +506,55 @@ export const useGLBState = create<GLBState>((set, get) => ({
 
   // Camera controls functions
   setCameraControlsRef: (ref: React.MutableRefObject<any> | null) => {
-    console.log('📷 setCameraControlsRef called with:', { 
-      hasRef: !!ref, 
-      hasCurrent: !!ref?.current,
-      currentType: typeof ref?.current 
-    });
     set({ cameraControlsRef: ref });
   },
 
   // Reset camera animation state (useful if it gets stuck)
   resetCameraAnimation: () => {
-    console.log('🔄 Resetting camera animation state');
     set({ isCameraAnimating: false });
   },
 
   centerCameraOnUnit: (building: string, floor: string, unit: string) => {
     const { cameraControlsRef, getGLBByUnit } = get();
     
-    console.log('🎯 centerCameraOnUnit called:', { building, floor, unit });
     
     if (!cameraControlsRef?.current) {
-      console.log('🚫 No camera controls ref available');
       return;
     }
 
     const controls = cameraControlsRef.current;
-    console.log('🎮 Camera controls object:', controls);
     
     const unitGLB = getGLBByUnit(building, floor, unit);
-    console.log('🏢 Found unit GLB:', unitGLB);
     
     if (!unitGLB?.object) {
-      console.log('🚫 No GLB object found for unit');
       return;
     }
     
     // Get the unit's world position
     const unitPosition = new THREE.Vector3();
     unitGLB.object.getWorldPosition(unitPosition);
-    console.log('📍 Unit world position:', unitPosition);
     
     // Update the world matrix to ensure accurate positioning
     unitGLB.object.updateMatrixWorld(true);
     
     // If at origin, try bounding box center
     if (unitPosition.lengthSq() < 0.01) {
-      console.log('📦 Unit at origin, trying bounding box center');
       const box = new THREE.Box3().setFromObject(unitGLB.object);
       if (!box.isEmpty()) {
         box.getCenter(unitPosition);
-        console.log('📦 Bounding box center:', unitPosition);
       }
     }
 
     // Skip if we still can't find a valid position
     if (unitPosition.lengthSq() < 0.01) {
-      console.log('🚫 No valid position found for unit');
       return;
     }
     
-    console.log('✅ Changing camera target to focus on unit at position:', unitPosition);
 
     // Use the correct CameraControls API method
     try {
       // setTarget(targetX, targetY, targetZ, enableTransition) - Sets only the target while keeping current camera position
       controls.setTarget(unitPosition.x, unitPosition.y, unitPosition.z, true);
-      console.log('🎬 Camera target set successfully using setTarget method!');
       
     } catch (error) {
       console.error('❌ Error setting camera target:', error);

@@ -19,20 +19,25 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    console.log('📊 CSV fetchData called with URL:', url);
+    console.log('🔍 [CSV Debug] Starting data fetch...');
+    console.log('🔍 [CSV Debug] Original URL:', url);
     setLoading(true);
+    setError(null);
     try {
       // Skip cache busting for Google Sheets URLs to avoid redirect issues
       const isGoogleSheets = url.includes('docs.google.com');
+      console.log('🔍 [CSV Debug] Is Google Sheets:', isGoogleSheets);
       let finalUrl = url;
       
       if (!isGoogleSheets) {
         const separator = url.includes('?') ? '&' : '?';
         const cacheBuster = `${separator}v=${Math.random()}&t=${Date.now()}`;
         finalUrl = url + cacheBuster;
+        console.log('🔍 [CSV Debug] Added cache buster');
       }
       
-      console.log('📊 Fetching from URL:', finalUrl);
+      console.log('🔍 [CSV Debug] Final URL:', finalUrl);
+      
       const response = await fetch(finalUrl, { 
         cache: 'no-store',
         headers: {
@@ -40,17 +45,26 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
           'Pragma': 'no-cache'
         }
       });
-      console.log('📊 Response status:', response.status, response.statusText);
+      
+      console.log('🔍 [CSV Debug] Response status:', response.status);
+      console.log('🔍 [CSV Debug] Response ok:', response.ok);
+      console.log('🔍 [CSV Debug] Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorMsg = `HTTP error! status: ${response.status}`;
+        console.error('🔍 [CSV Debug] Fetch failed:', errorMsg);
+        throw new Error(errorMsg);
       }
       const csvText = await response.text();
-      console.log('📊 CSV text length:', csvText.length, 'First 100 chars:', csvText.substring(0, 100));
+      console.log('🔍 [CSV Debug] CSV text length:', csvText.length);
+      console.log('🔍 [CSV Debug] CSV preview:', csvText.substring(0, 200));
       
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
+          console.log('🔍 [CSV Debug] Parse results:', results);
+          console.log('🔍 [CSV Debug] Number of rows:', results.data.length);
           const unitData: Record<string, UnitData> = {};
           // Ensure results.data is an array before processing
           if (Array.isArray(results.data)) {
@@ -62,8 +76,8 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
               if (unitName) {
                 // Store with multiple possible keys for better matching
                 const floorplanUrl = row['Floorplan'] || row['Column 1'];
-                // Convert availability to boolean - handle "Available"/"Occupied" text values
-                const isAvailable = row.Available?.toLowerCase().trim() === 'available';
+                // Convert availability to boolean - handle 1/0 numeric values
+                const isAvailable = row.Available === '1' || row.Available === 1;
                 
                 const unitDataEntry = {
                   name: row.Product,
@@ -80,9 +94,6 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
                     const rawSize = row.Size_RSF || row.Size || '';
                     const cleanSize = rawSize.replace(/[,\s]/g, '').replace(/RSF/gi, '').replace(/[A-Za-z]/g, '');
                     const parsed = parseInt(cleanSize);
-                    if (row.Product === 'F-200' || row.Product === 'M-20') {
-                      console.log(`🔍 ${row.Product} area parsing:`, { rawSize, cleanSize, parsed, finalValue: parsed || undefined });
-                    }
                     return parsed > 0 ? parsed : undefined;
                   })(),
                   status: isAvailable,
@@ -106,13 +117,18 @@ export function useCsvUnitData(url: string = '/unit-data.csv') {
               }
             });
           }
+          console.log('🔍 [CSV Debug] Processed unit data keys:', Object.keys(unitData));
+          console.log('🔍 [CSV Debug] Total units processed:', Object.keys(unitData).length);
           setData(unitData);
+          console.log('✅ [CSV Debug] Data loading completed successfully');
         },
         error: (err: any) => {
+          console.error('🔍 [CSV Debug] Papa parse error:', err);
           setError(err.message);
         },
       });
     } catch (e: any) {
+      console.error('🔍 [CSV Debug] Fetch error:', e);
       setError(e.message);
     } finally {
       setLoading(false);
