@@ -5,24 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:auto": "node scripts/next-port.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "agent": "node scripts/start-agent.js",
-    "dev:port": "vite --port"
+    "dev:port": "vite --port",
+    "clean:dry": "node scripts/clean-project.mjs",
+    "clean:apply": "node scripts/clean-project.mjs apply"
   },
   "dependencies": {
     "@react-three/drei": "^9.99.7",
     "@react-three/fiber": "^8.0.0",
-    "@react-three/postprocessing": "^2.11.0",
+    "@react-three/postprocessing": "^2.19.1",
     "framer-motion": "^11.0.20",
     "lucide-react": "^0.344.0",
     "mitt": "^3.0.1",
     "node-fetch": "^3.3.2",
     "papaparse": "^5.5.3",
+    "postprocessing": "^6.37.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "three": "^0.162.0",
+    "three-stdlib": "^2.36.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

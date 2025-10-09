@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { CameraControls, Environment } from '@react-three/drei';
+import * as THREE from 'three';
+import { CameraControls, Environment, Sky } from '@react-three/drei';
 import { detectDevice, getMobileOptimizedSettings } from './utils/deviceDetection';
 import { MobileMemoryManager } from './utils/memoryManager';
 import { MessageCircle, CheckCircle, Building, RotateCcw, RotateCw, ZoomIn, ZoomOut, Home } from 'lucide-react';
@@ -20,14 +21,52 @@ import { FloorplanPopup } from './components/FloorplanPopup';
 import { NavigationControls } from './components/NavigationControls';
 import { FilterDropdown } from './components/FilterDropdown';
 import { HoverToast } from './ui/HoverToast';
+import { GroundPlane } from './components/GroundPlane';
+import { SimpleShadowDebug as ShadowDebugUI } from './components/SimpleShadowDebug';
+import { SceneDebugUI, SceneDebugSettings } from './components/SceneDebugUI';
 import { UnitHoverPreview } from './components/UnitHoverPreview';
 import { SafariErrorBoundary } from './components/SafariErrorBoundary';
+import { AdaptivePerformance } from './components/PerformanceMonitor';
+import { GodRays } from './scene/GodRays';
+import { Lighting } from './scene/Lighting';
 import { useUnitStore } from './stores/useUnitStore';
 import { useExploreState, buildUnitsIndex, type UnitRecord } from './store/exploreState';
 import { useGLBState } from './store/glbState';
 import { useCsvUnitData } from './hooks/useCsvUnitData';
 import { emitEvent, getTimestamp } from './lib/events';
-import * as THREE from 'three';
+import { validateAllMaterials, setupRendererSafety } from './dev/MaterialValidator';
+import { runDuplicateAudit } from './dev/DuplicateAudit';
+
+
+// Component to capture scene and gl refs + setup safety
+const SceneCapture = ({ sceneRef, glRef }: { sceneRef: React.RefObject<THREE.Scene>, glRef: React.RefObject<THREE.WebGLRenderer> }) => {
+  const { gl, scene } = useThree();
+  const setupComplete = useRef(false);
+  
+  useEffect(() => {
+    sceneRef.current = scene;
+    glRef.current = gl;
+    
+    // Setup renderer safety once
+    if (!setupComplete.current) {
+      setupRendererSafety(gl);
+      setupComplete.current = true;
+    }
+  }, [scene, gl, sceneRef, glRef]);
+  
+  // Run material validation after scene loads
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      validateAllMaterials(scene);
+    }, 2000); // After models load
+    
+    return () => clearTimeout(timer);
+  }, [scene]);
+  
+  return null;
+};
+
+// Material setup removed - materials handled by UnitWarehouse component
 
 // Adaptive pixel ratio component for performance optimization
 function AdaptivePixelRatio() {
@@ -39,26 +78,23 @@ function AdaptivePixelRatio() {
   return null;
 }
 
-// Google Sheets CSV data source - published as CSV format
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRDfR23epOzgSvWy5zup1Uk5W1X-QJsrQp3yzXlN1MvZHCfEZqZrF8Rf2SrP81eNhWVPtX9olHf_wCT/pub?output=csv';
+// Google Sheets CSV data source - Updated to new spreadsheet
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBerrxFj5qKyqlWidn983mMQWCNBBsl824Nr8qSiHNqNaIKAr-RLEhDP_P2TuVnewkLms8EFdBiY2T/pub?output=csv';
 
-// Stable HDRI Environment Component - memoized and keyed to prevent re-renders
-const StableHDRIEnvironment = React.memo(() => {
-  console.log('🌍 HDRI Environment rendered/re-rendered');
+// Legacy HDRI Environment component - kept for fallback but not used by default
+const LegacyHDRIEnvironment = React.memo(() => {
   return (
-    <group position={[0, -8, 0]} key="stable-hdri">
-      <Environment
-        files={assetUrl('textures/qwantani_noon_puresky_2k.hdr')}
-        background={true}
-        backgroundIntensity={1.0}
-        environmentIntensity={0.75}
-        backgroundBlurriness={0.05}
-        backgroundRotation={[0, 0, 0]}
-        resolution={256}
-      />
-    </group>
+    <Environment
+      files="/textures/qwantani_noon_puresky_2k.hdr"
+      background={false} // Sky component handles background
+      backgroundIntensity={0.8}
+      environmentIntensity={0.35} // Reduced for realism
+      backgroundBlurriness={0.0}
+      backgroundRotation={[0, 0, 0]}
+      resolution={1024}
+    />
   );
-}, () => true); // Always return true to prevent any re-renders
+});
 
 // Simple Error Boundary for HDRI loading
 class HDRIErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
@@ -97,14 +133,14 @@ export const FALLBACK_UNIT_DATA = {
   'f-50': { name: 'f-50', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/Fifth Street Building/Ground Floor/F-50.glb' },
   'f-60': { name: 'f-60', size: '1,400 sq ft', availability: 'Occupied', amenities: 'Mid-size floor unit', glb: 'boxes/Fifth Street Building/Ground Floor/F-60.glb' },
   'f-70': { name: 'f-70', size: '1,900 sq ft', availability: 'Available', amenities: 'Premium floor space', glb: 'boxes/Fifth Street Building/Ground Floor/F-70.glb' },
-  'f-100': { name: 'f-100', size: '2,200 sq ft', availability: 'Available', amenities: 'Large floor unit with high ceilings', glb: 'boxes/Fifth Street Building/First Floor/F-100.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f100.jpg' },
-  'f-105': { name: 'f-105', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office space', glb: 'boxes/Fifth Street Building/First Floor/F-105.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f105.jpg' },
+  'f-100': { name: 'f-100', size: '2,200 sq ft', availability: 'Available', amenities: 'Large floor unit with high ceilings', glb: 'boxes/Fifth Street Building/First Floor/F-100.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f100.png' },
+  'f-105': { name: 'f-105', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office space', glb: 'boxes/Fifth Street Building/First Floor/F-105.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f105.png' },
   'f-110 cr': { name: 'f-110 cr', size: '1,500 sq ft', availability: 'Occupied', amenities: 'Conference room unit', glb: 'boxes/Fifth Street Building/First Floor/F-110 CR.glb' },
-  'f-115': { name: 'f-115', size: '1,600 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-115.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f115.jpg' },
-  'f-140': { name: 'f-140', size: '2,400 sq ft', availability: 'Available', amenities: 'Extra large floor space', glb: 'boxes/Fifth Street Building/First Floor/F-140.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f140.jpg' },
-  'f-150': { name: 'f-150', size: '2,000 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-150.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f150.jpg' },
+  'f-115': { name: 'f-115', size: '1,600 sq ft', availability: 'Available', amenities: 'Standard floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-115.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f115.png' },
+  'f-140': { name: 'f-140', size: '2,400 sq ft', availability: 'Available', amenities: 'Extra large floor space', glb: 'boxes/Fifth Street Building/First Floor/F-140.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f140.png' },
+  'f-150': { name: 'f-150', size: '2,000 sq ft', availability: 'Occupied', amenities: 'Premium floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-150.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f150.png' },
   'f-160': { name: 'f-160', size: '1,700 sq ft', availability: 'Available', amenities: 'Large floor space', glb: 'boxes/Fifth Street Building/First Floor/F-160.glb' },
-  'f-170': { name: 'f-170', size: '1,900 sq ft', availability: 'Available', amenities: 'Floor unit with loading access', glb: 'boxes/Fifth Street Building/First Floor/F-170.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f170.jpg' },
+  'f-170': { name: 'f-170', size: '1,900 sq ft', availability: 'Available', amenities: 'Floor unit with loading access', glb: 'boxes/Fifth Street Building/First Floor/F-170.glb', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f170.png' },
   'f-175': { name: 'f-175', size: '1,600 sq ft', availability: 'Available', amenities: 'Mid-size floor unit', glb: 'boxes/Fifth Street Building/First Floor/F-175.glb' },
   'f-180': { name: 'f-180', size: '2,100 sq ft', availability: 'Occupied', amenities: 'Large premium floor space', glb: 'boxes/Fifth Street Building/First Floor/F-180 .glb' },
   'f-185': { name: 'f-185', size: '1,800 sq ft', availability: 'Available', amenities: 'Floor unit with office' },
@@ -113,7 +149,7 @@ export const FALLBACK_UNIT_DATA = {
   'f-200': { name: 'f-200', size: '2,300 sq ft', availability: 'Occupied', amenities: 'Premium large floor unit' },
   'f-240': { name: 'f-240', size: '2,600 sq ft', availability: 'Available', amenities: 'Extra large floor space' },
   'f-250': { name: 'f-250', size: '2,400 sq ft', availability: 'Available', amenities: 'Large floor unit' },
-  'f-280': { name: 'f-280', size: '2,800 sq ft', availability: 'Available', amenities: 'Extra large premium floor space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f280.jpg' },
+  'f-280': { name: 'f-280', size: '2,800 sq ft', availability: 'Available', amenities: 'Extra large premium floor space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/f280.png' },
   'f-290': { name: 'f-290', size: '2,500 sq ft', availability: 'Occupied', amenities: 'Large floor unit' },
   'f-300': { name: 'f-300', size: '3,000 sq ft', availability: 'Available', amenities: 'Extra large floor space' },
   'f-330': { name: 'f-330', size: '3,200 sq ft', availability: 'Available', amenities: 'Premium extra large unit' },
@@ -129,11 +165,11 @@ export const FALLBACK_UNIT_DATA = {
   'm-40': { name: 'm-40', size: '1,200 sq ft', availability: 'Available', amenities: 'Large mezzanine unit' },
   'm-45': { name: 'm-45', size: '1,000 sq ft', availability: 'Occupied', amenities: 'Mid-size mezzanine' },
   'm-50': { name: 'm-50', size: '1,400 sq ft', availability: 'Available', amenities: 'Large mezzanine space' },
-  'm-120': { name: 'm-120', size: '1,600 sq ft', availability: 'Available', amenities: 'Premium mezzanine unit', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m120.jpg' },
+  'm-120': { name: 'm-120', size: '1,600 sq ft', availability: 'Available', amenities: 'Premium mezzanine unit', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m120.png' },
   'm-130': { name: 'm-130', size: '1,800 sq ft', availability: 'Occupied', amenities: 'Large mezzanine space' },
-  'm-140': { name: 'm-140', size: '1,700 sq ft', availability: 'Available', amenities: 'Mezzanine with office space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m140.jpg' },
+  'm-140': { name: 'm-140', size: '1,700 sq ft', availability: 'Available', amenities: 'Mezzanine with office space', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m140.png' },
   'm-145': { name: 'm-145', size: '1,500 sq ft', availability: 'Available', amenities: 'Mid-size mezzanine' },
-  'm-150': { name: 'm-150', size: '2,000 sq ft', availability: 'Available', amenities: 'Large mezzanine unit', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m150.jpg' },
+  'm-150': { name: 'm-150', size: '2,000 sq ft', availability: 'Available', amenities: 'Large mezzanine unit', floorPlanUrl: import.meta.env.BASE_URL + 'floorplans/converted/m150.png' },
   'm-160': { name: 'm-160', size: '1,900 sq ft', availability: 'Occupied', amenities: 'Premium mezzanine space' },
   'm-170': { name: 'm-170', size: '2,100 sq ft', availability: 'Available', amenities: 'Large elevated space' },
   'm-180': { name: 'm-180', size: '2,200 sq ft', availability: 'Available', amenities: 'Extra large mezzanine' },
@@ -312,6 +348,8 @@ const DetailsSidebar: React.FC<{
   );
 };
 
+// RendererSetup removed - EnvHDRI handles all renderer configuration
+
 function App() {
   const { selectedUnit, hoveredUnit, setSelectedUnit, setHoveredUnit } = useUnitStore();
   const { drawerOpen, setDrawerOpen, selectedUnitKey, getUnitData, unitDetailsOpen, setUnitDetailsOpen, show3DPopup, setShow3DPopup, hoveredUnitKey } = useExploreState();
@@ -341,6 +379,22 @@ function App() {
       window.removeEventListener('unit-hover-clear' as any, handleHoverClear);
     };
   }, []);
+
+  // Global hotkeys for debugging and audit
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'd' || event.key === 'D') {
+        if (sceneRef.current) {
+          console.log("🔍 Running material validation and duplicate audit...");
+          validateAllMaterials(sceneRef.current);
+          runDuplicateAudit(sceneRef.current);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
   
   // Debug logging for state changes
   
@@ -351,9 +405,32 @@ function App() {
   const [sphereData, setSphereData] = useState<{center: THREE.Vector3, radius: number} | null>(null);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingPhase, setLoadingPhase] = useState('initializing'); // Track loading phase
+  const [effectsReady, setEffectsReady] = useState(false); // Delay post-processing effects
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [popup3DPosition, setPopup3DPosition] = useState<{x: number, y: number} | undefined>();
   const [showSingleUnitRequest, setShowSingleUnitRequest] = useState(false);
+  const [shadowDebugOpen, setShadowDebugOpen] = useState(false);
+  const [sceneDebugSettings, setSceneDebugSettings] = useState<SceneDebugSettings>({
+    sunPosition: [-34.0, 78.5, 28.5],
+    sunIntensity: 6.2,
+    shadowBias: -0.0005,
+    shadowNormalBias: 0.70,
+    shadowMapSize: 4096
+  });
+  // Fixed shadow settings - optimized single light source
+  const FIXED_SHADOW_SETTINGS = {
+    shadowsEnabled: true,
+    shadowMapSize: 2048,
+    shadowIntensity: 3.0,
+    shadowRadius: 6,
+    shadowBias: -1, // Adjusted for cleaner shadows
+    showHelpers: false
+  };
+  
+  // Refs to store Three.js instances for shadow settings callback
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const glRef = useRef<THREE.WebGLRenderer | null>(null);
   const [requestUnitKey, setRequestUnitKey] = useState<string>('');
   const [requestUnitName, setRequestUnitName] = useState<string>('');
   const [showFloorplanPopup, setShowFloorplanPopup] = useState(false);
@@ -367,31 +444,34 @@ function App() {
   const orbitControlsRef = useRef<CameraControls>(null);
   
   // Mobile device detection and optimization settings
-  const deviceCapabilities = useMemo(() => detectDevice(), []);
+  const deviceCapabilities = useMemo(() => {
+    const caps = detectDevice();
+    console.log('🔍 Device Detection Results:', caps);
+    console.log('🔍 Will render shadows?', !caps.isMobile);
+    return caps;
+  }, []);
+  
+  // Force shadow initialization on app start - moved after deviceCapabilities definition
+  useEffect(() => {
+    // Ensure shadows are properly initialized when app starts - ALWAYS enable for all devices
+    console.log('🔥 App: Force initializing shadows on startup for ALL devices');
+    // Shadow settings are now handled by SimpleShadowDebug component directly
+  }, []);
   const mobileSettings = useMemo(() => getMobileOptimizedSettings(deviceCapabilities), [deviceCapabilities]);
   
-  // Create mobile-optimized GL configuration
+  // Shadow-enabled renderer configuration
   const glConfig = useMemo(() => {
-    if (deviceCapabilities.isMobile) {
-      return {
-        powerPreference: deviceCapabilities.isIOS ? "low-power" : "default",
-        antialias: false, // Expensive on mobile
-        alpha: false,
-        preserveDrawingBuffer: false,
-        stencil: false,
-        depth: true,
-        failIfMajorPerformanceCaveat: deviceCapabilities.isLowPowerDevice
-      };
-    }
     return {
       powerPreference: "high-performance",
       antialias: true,
       alpha: false,
       preserveDrawingBuffer: false,
       stencil: false,
-      depth: true
+      depth: true,
+      premultipliedAlpha: false,
+      failIfMajorPerformanceCaveat: false,
     };
-  }, [deviceCapabilities]);
+  }, []);
   
   // Initialize memory manager for mobile devices
   useEffect(() => {
@@ -425,17 +505,18 @@ function App() {
     }
   }, [deviceCapabilities.isMobile, deviceCapabilities.isIOS]);
   
-  // Connect camera controls to GLB state for smooth centering
+  // Optimized camera controls initialization with faster polling and shorter timeout
   useEffect(() => {
     setCameraControlsRef(orbitControlsRef);
     
     let hasLogged = false;
+    let timeoutId: NodeJS.Timeout;
     
     // Set initial target position when controls are ready
     const setupInitialTarget = () => {
       if (orbitControlsRef.current && orbitControlsRef.current.target && typeof orbitControlsRef.current.target.set === 'function') {
         if (!hasLogged) {
-          console.log('🎯 Camera controls initialized');
+          console.log('🎯 Camera controls initialized successfully');
           hasLogged = true;
         }
         orbitControlsRef.current.target.set(0, 0, 0);
@@ -445,22 +526,34 @@ function App() {
       return false;
     };
     
+    // Try immediate setup
     if (!setupInitialTarget()) {
-      // If controls aren't ready, check periodically but limit attempts
       let attempts = 0;
-      const maxAttempts = 100; // 10 seconds max
+      const maxAttempts = 30; // 3 seconds max (reduced from 10 seconds)
       
       const interval = setInterval(() => {
         attempts++;
-        if (setupInitialTarget() || attempts >= maxAttempts) {
+        if (setupInitialTarget()) {
           clearInterval(interval);
-          if (attempts >= maxAttempts && !hasLogged) {
-            console.warn('⚠️ Camera controls initialization timeout');
-          }
+          clearTimeout(timeoutId);
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.warn('⚠️ Camera controls initialization timeout after 3 seconds');
         }
       }, 100);
       
-      return () => clearInterval(interval);
+      // Alternative: try using requestAnimationFrame for faster checking
+      const trySetupRAF = () => {
+        if (!setupInitialTarget() && attempts < maxAttempts) {
+          requestAnimationFrame(trySetupRAF);
+        }
+      };
+      requestAnimationFrame(trySetupRAF);
+      
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeoutId);
+      };
     }
   }, [setCameraControlsRef]);
   
@@ -480,14 +573,15 @@ function App() {
     }
   }, [modelsLoading]);
 
-  // Debug logging for loading states
-  
-  // Fallback: hide loading screen after 8 seconds if models never report completion
+  // Fallback: hide loading screen after 12 seconds if something goes wrong
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
-      console.log('Loading timeout reached, forcing load completion');
-      setModelsLoading(false);
-    }, 8000);
+      console.warn('⚠️ Loading timeout reached (12s), forcing completion');
+      setLoadingProgress(100);
+      setLoadingPhase('complete');
+      setEffectsReady(true);
+      setTimeout(() => setModelsLoading(false), 300);
+    }, 12000);
     
     return () => clearTimeout(fallbackTimer);
   }, []);
@@ -720,16 +814,34 @@ function App() {
   }, []);
 
   const handleZoomIn = useCallback(() => {
+    console.log('🔍 Zoom In button clicked');
     if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
-      controls.dolly(0.85, true); // Zoom in
+      const distanceBefore = controls.distance;
+      controls.dolly(0.85, true); // Zoom in (less than 1.0 to move camera closer)
+      // Log distance after a brief delay to capture the change
+      setTimeout(() => {
+        const distanceAfter = controls.distance;
+        console.log(`🔍 ZoomIn → distance ${distanceBefore.toFixed(2)} → ${distanceAfter.toFixed(2)}`);
+      }, 100);
+    } else {
+      console.warn('⚠️ orbitControlsRef null (wire failure) - App.tsx:handleZoomIn');
     }
   }, []);
 
   const handleZoomOut = useCallback(() => {
+    console.log('🔍 Zoom Out button clicked');
     if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
-      controls.dolly(1.18, true); // Zoom out
+      const distanceBefore = controls.distance;
+      controls.dolly(-0.35, true); // Zoom out (negative value to move camera away)
+      // Log distance after a brief delay to capture the change
+      setTimeout(() => {
+        const distanceAfter = controls.distance;
+        console.log(`🔍 ZoomOut → distance ${distanceBefore.toFixed(2)} → ${distanceAfter.toFixed(2)}`);
+      }, 100);
+    } else {
+      console.warn('⚠️ orbitControlsRef null (wire failure) - App.tsx:handleZoomOut');
     }
   }, []);
 
@@ -758,13 +870,66 @@ function App() {
     setFloorplanPopupData(null);
   }, []);
   
+  // Start loading progress immediately on mount
+  useEffect(() => {
+    setLoadingPhase('initializing');
+    setLoadingProgress(5);
+    console.log('🎬 Loading started...');
+    
+    // Simulate early progress to show activity
+    const earlyProgress = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev < 15) return prev + 1;
+        return prev;
+      });
+    }, 100);
+    
+    setTimeout(() => {
+      setLoadingPhase('loading-assets');
+      clearInterval(earlyProgress);
+    }, 1000);
+    
+    return () => clearInterval(earlyProgress);
+  }, []);
+
   const handleModelsLoadingProgress = useCallback((loaded: number, total: number) => {
-    const progress = Math.round((loaded / total) * 100);
-    setLoadingProgress(progress);
+    // Map model loading to 15-70% of progress bar
+    const modelProgress = Math.round((loaded / total) * 55) + 15;
+    setLoadingProgress(modelProgress);
+    setLoadingPhase('loading-models');
+    console.log(`📦 Models: ${loaded}/${total} (${modelProgress}%)`);
     
     if (loaded >= total) {
-      // Immediately hide loading screen when done
-      setModelsLoading(false);
+      setLoadingPhase('validating-materials');
+      setLoadingProgress(75);
+      console.log('🔍 Validating materials...');
+      
+      // Material validation phase
+      setTimeout(() => {
+        setLoadingPhase('compiling-shaders');
+        setLoadingProgress(85);
+        console.log('⚡ Compiling shaders...');
+        
+        // Shader compilation phase
+        setTimeout(() => {
+          setLoadingPhase('enabling-effects');
+          setLoadingProgress(95);
+          setEffectsReady(true);
+          console.log('✨ Post-processing effects enabled');
+          
+          // Final phase - scene ready
+          setTimeout(() => {
+            setLoadingProgress(100);
+            setLoadingPhase('complete');
+            console.log('🎬 Scene ready with post-processing');
+            
+            // Hide loading screen after brief pause
+            setTimeout(() => {
+              setModelsLoading(false);
+            }, 300);
+          }, 500);
+        }, 800);
+      }, 600);
     }
   }, []);
 
@@ -784,32 +949,43 @@ function App() {
               
               {/* Pulsating GIF Logo */}
               <div className="mb-8">
-                <img 
-                  src={assetUrl('textures/333999.gif')} 
-                  alt="Loading" 
-                  className="mx-auto mb-4 max-w-xs h-auto animate-pulse"
-                  style={{ 
-                    filter: 'none',
-                    animation: 'pulse 2s ease-in-out infinite'
-                  }}
-                />
+                <div style={{
+                  overflow: 'hidden',
+                  maxWidth: '20rem',
+                  margin: '0 auto 1rem'
+                }}>
+                  <img 
+                    src={assetUrl('textures/333999.gif')} 
+                    alt="Loading" 
+                    className="w-full"
+                    style={{ 
+                      filter: 'none',
+                      animation: 'pulse 2s ease-in-out infinite',
+                      marginBottom: '-3px'
+                    }}
+                  />
+                </div>
               </div>
               
               {/* Loading Progress */}
               <div className="mb-6">
-                <div className="bg-gray-200 rounded-full h-2 w-80 mx-auto mb-4 overflow-hidden">
+                <div className="bg-gray-200 rounded-full h-3 w-80 mx-auto overflow-hidden">
                   <div 
                     className="bg-gray-600 h-full rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${loadingProgress}%` }}
                   ></div>
                 </div>
-              </div>
-              
-              {/* Animated dots */}
-              <div className="flex justify-center space-x-2">
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                
+                {/* Loading Phase Text */}
+                <p className="text-gray-600 text-sm mt-3">
+                  {loadingPhase === 'initializing' && 'Initializing...'}
+                  {loadingPhase === 'loading-assets' && 'Loading assets...'}
+                  {loadingPhase === 'loading-models' && `Loading models... ${loadingProgress}%`}
+                  {loadingPhase === 'validating-materials' && 'Validating materials...'}
+                  {loadingPhase === 'compiling-shaders' && 'Compiling shaders...'}
+                  {loadingPhase === 'enabling-effects' && 'Enabling post-processing...'}
+                  {loadingPhase === 'complete' && 'Ready!'}
+                </p>
               </div>
             </div>
           </div>
@@ -823,40 +999,57 @@ function App() {
         
         
         <Canvas
-          shadows={mobileSettings.shadows}
-          camera={{ position: [-10, 10, -14], fov: deviceCapabilities.isMobile ? 45 : 40 }}
+          shadows
+          dpr={Math.min(window.devicePixelRatio, deviceCapabilities.isMobile ? 1.5 : 1.8)}
+          camera={{ position: [-10, 10, -14], fov: 45, near: 0.1, far: 1000 }}
           style={{ 
             width: '100%', 
             height: '100%',
-            filter: deviceCapabilities.isMobile ? "none" : "contrast(1.1) brightness(0.99) saturate(1.0)"
+            filter: "none"
           }}
-          dpr={mobileSettings.pixelRatio}
-          gl={glConfig}
-          frameloop={deviceCapabilities.isLowPowerDevice ? "demand" : "always"}
+          gl={{
+            powerPreference: "high-performance",
+            antialias: false,
+            alpha: false,
+            logarithmicDepthBuffer: false,
+            preserveDrawingBuffer: false,
+            stencil: false,
+            depth: true,
+            premultipliedAlpha: false,
+            failIfMajorPerformanceCaveat: false,
+          }}
+          frameloop="always"
         >
-          {/* Adaptive Lighting System */}
-          <ambientLight intensity={deviceCapabilities.isMobile ? 0.4 : 0.27} />
-          
-          {/* Distance-based fog - disabled on low power devices */}
-          {!deviceCapabilities.isLowPowerDevice && (
-            <fog attach="fog" args={['#ffffff', 15, 60]} />
-          )}
-          
-          {/* Enhanced sunlight for better scene lighting */}
-          <directionalLight
-            position={[30, 40, 20]}
-            intensity={deviceCapabilities.isMobile ? 0.8 : 1.2}
-            color="#fff8e1"
-            castShadow={false}
+          {/* Environment - HDRI lighting */}
+          <Environment
+            files="/textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr"
+            background={true}
+            backgroundIntensity={1.6}
+            environmentIntensity={1.2}
+            resolution={1024}
           />
           
-          {/* Additional fill light for shadows */}
-          <directionalLight
-            position={[-15, 20, -10]}
-            intensity={deviceCapabilities.isMobile ? 0.3 : 0.5}
-            color="#e3f2fd"
-            castShadow={false}
+          {/* Lighting System - unified and optimized */}
+          <Lighting 
+            hdriUrl="/env/qwantani_noon_2k.hdr"
+            exposure={1.0}
           />
+          
+          {/* Volumetric fog for god rays - FogExp2 for exponential density (reduced for better low-angle visibility) */}
+          <fogExp2 attach="fog" args={['#b8d0e8', 0.004]} />
+          
+          {/* Capture scene and gl for external callbacks */}
+          <SceneCapture sceneRef={sceneRef} glRef={glRef} />
+          
+          {/* Post-processing disabled - focus on basic shadows */}
+          {/* <SSAOEffect 
+            enabled={true}
+            ssaoIntensity={0.8}
+            ssaoRadius={0.15}
+            bloomIntensity={0.2}
+            dofEnabled={false}
+            toneMappingEnabled={true}
+          /> */}
 
           {/* 3D Scene - Full Environment */}
           <UnitWarehouse
@@ -878,24 +1071,16 @@ function App() {
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* Adaptive Environment - HDRI for desktop, simple color for mobile */}
-          {deviceCapabilities.isMobile || deviceCapabilities.isLowPowerDevice ? (
-            // Simple sky gradient for mobile devices
-            <color attach="background" args={['#87CEEB']} />
-          ) : (
-            // Full HDRI environment for desktop - isolated to prevent re-renders
-            <HDRIErrorBoundary>
-              <React.Suspense fallback={<color attach="background" args={['#E6F3FF']} />}>
-                <StableHDRIEnvironment />
-              </React.Suspense>
-            </HDRIErrorBoundary>
-          )}
+          {/* God Rays Effect - delayed to prevent context loss */}
+          {effectsReady && <GodRays />}
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
           
-          {/* Adaptive Performance Optimization */}
-          <AdaptivePixelRatio />
+          {/* Performance Optimizations - DISABLED for testing */}
+          {/* <AdaptivePixelRatio />
+          <AdaptivePerformance /> */}
+          
           
           {/* 3D Scene Popup */}
           <Unit3DPopupOverlay
@@ -915,10 +1100,56 @@ function App() {
           {/* Post-Processing Effects - DISABLED FOR PERFORMANCE */}
         </Canvas>
         
-
         
-        {/* Bottom Controls - Identical desktop layout for all devices */}
-        {!modelsLoading && (
+        {/* Mobile Layout - Top controls, bottom camera */}
+        {!modelsLoading && deviceCapabilities.isMobile && (
+          <>
+            {/* Top Controls for Mobile */}
+            <div className="fixed top-6 left-6 right-6 z-40 flex justify-between items-start">
+              {/* Explore Units Button - Top Left */}
+              <button
+                onClick={handleToggleExploreDrawer}
+                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+              >
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">Explore Units</span>
+                {drawerOpen ? (
+                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </button>
+
+              {/* Request Button - Top Right */}
+              <button
+                onClick={handleRequestClick}
+                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
+                title="Submit a request"
+              >
+                <MessageCircle size={16} className="text-gray-600" />
+                <span className="text-sm">Request</span>
+              </button>
+            </div>
+
+            {/* Bottom Camera Controls for Mobile */}
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
+              <NavigationControls
+                onRotateLeft={handleRotateLeft}
+                onRotateRight={handleRotateRight}
+                onZoomIn={handleZoomIn}
+                onZoomOut={handleZoomOut}
+                onResetView={handleResetView}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Desktop Layout - Bottom controls */}
+        {!modelsLoading && !deviceCapabilities.isMobile && (
           <div className="fixed bottom-6 left-6 right-6 z-40 flex justify-between items-end">
             {/* Explore Units Button - Bottom Left */}
             <button
@@ -1039,6 +1270,8 @@ function App() {
           unitName={requestUnitName}
         />
       )}
+
+      {/* Shadow Debug UI - DISABLED (using RealisticSun instead) */}
       
       {/* Floorplan Popup */}
       {showFloorplanPopup && floorplanPopupData && (
@@ -1062,6 +1295,8 @@ function App() {
           isVisible={true}
         />
       )}
+
+      {/* Sun Position Controls - Removed, values hard-coded */}
       </div>
     </SafariErrorBoundary>
   );

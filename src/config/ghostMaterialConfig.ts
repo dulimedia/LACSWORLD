@@ -5,13 +5,13 @@
 
 export const GHOST_MATERIAL_CONFIG = {
   // Visual appearance
-  color: '#0080FF',      // Blue color for selected units
-  opacity: 0.45,         // Enhanced visibility - increased from 0.25 for better prominence
+  color: '#0066CC',      // Slightly darker, less saturated blue for selected units
+  opacity: 0.18,         // Further reduced opacity for less brightness
   
   // Fresnel effect parameters (edge glow)
   fresnelBias: 0.1,      // Base fresnel value
-  fresnelScale: 2.2,     // Enhanced intensity of the fresnel effect - increased from 1.8
-  fresnelPower: 2.8,     // Enhanced falloff of the fresnel effect - increased from 2.5
+  fresnelScale: 1.8,     // Reduced intensity for more subtle effect
+  fresnelPower: 2.5,     // Reduced falloff for softer edges
   
   // Render settings
   depthTest: false,      // Draw on top of everything

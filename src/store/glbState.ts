@@ -72,7 +72,7 @@ export interface GLBState {
 // GLB file structure mapping based on the actual file system (exact match)
 const GLB_STRUCTURE = {
   "Fifth Street Building": {
-    "Ground Floor": ["F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
+    "Ground Floor": ["Club 76", "F-10", "F-15", "F-20", "F-25", "F-30", "F-35", "F-40", "F-50", "F-60", "F-70", "FG - Library", "FG - Restroom"],
     "First Floor": ["F-100", "F-105", "F-110 CR", "F-115", "F-140", "F-150", "F-160", "F-170", "F-175", "F-180", "F-185", "F-187", "F-190", "F1 Restrooms"],
     "Second Floor": ["F-200", "F-240", "F-250", "F-280", "F-290", "F2 Restrooms"],
     "Third Floor": ["F-300", "F-330", "F-340", "F-350", "F-360", "F-363", "F-365", "F-380", "F3 Restrooms"]
@@ -162,9 +162,22 @@ export const useGLBState = create<GLBState>((set, get) => ({
     if (node) {
       // Ensure the object is hidden immediately when stored
       object.visible = false;
+      
+      // Apply invisible material to prevent any rendering
+      const invisibleMaterial = new THREE.MeshBasicMaterial({
+        visible: false,
+        transparent: true,
+        opacity: 0.0,
+        colorWrite: false,
+        depthWrite: false,
+        depthTest: false
+      });
+      
       object.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.visible = false;
+          // Apply invisible material to prevent any rendering
+          child.material = invisibleMaterial;
         }
       });
       
@@ -197,7 +210,8 @@ export const useGLBState = create<GLBState>((set, get) => ({
           node.object.visible = false;
         } else {
           node.object.visible = true;
-          // The FresnelMaterial will be applied by the component
+          // Note: Material handling is now done by the SelectedUnitOverlay component
+          // No need to force material changes here
         }
       }
     }
@@ -559,5 +573,27 @@ export const useGLBState = create<GLBState>((set, get) => ({
     } catch (error) {
       console.error('❌ Error setting camera target:', error);
     }
+  },
+
+  // Helper method to apply transparent material to ensure no white materials
+  applyTransparentMaterial: (object: THREE.Group) => {
+    const transparentMaterial = new THREE.MeshStandardMaterial({
+      color: '#0066CC',
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        // Store original material if not already stored
+        if (!child.userData.originalMaterial) {
+          child.userData.originalMaterial = child.material;
+        }
+        // Apply transparent material
+        child.material = transparentMaterial;
+      }
+    });
   }
 }));

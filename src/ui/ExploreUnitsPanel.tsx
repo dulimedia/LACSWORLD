@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { detectDevice } from '../utils/deviceDetection';
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -296,8 +297,7 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   // Get filter state from parent component context
   const filters = useExploreState(state => ({
     minSqft: state.filters?.minSqft || 0,
-    maxSqft: state.filters?.maxSqft || 20000,
-    hasKitchen: state.filters?.hasKitchen || 'any'
+    maxSqft: state.filters?.maxSqft || 20000
   }));
   
   const floors = getFloorList(building);
@@ -325,10 +325,14 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
         if (filters.minSqft !== -1 && sqft < filters.minSqft) return;
         if (filters.maxSqft !== -1 && sqft > filters.maxSqft) return;
         
-        if (filters.hasKitchen !== 'any') {
-          const hasKitchen = unit.kitchen_size && unit.kitchen_size !== 'None';
-          if (filters.hasKitchen === 'yes' && !hasKitchen) return;
-          if (filters.hasKitchen === 'no' && hasKitchen) return;
+        // Kitchen filter
+        if (filters.hasKitchen === 'yes') {
+          const kitchenSize = unit.kitchen_size;
+          const hasKitchen = kitchenSize && 
+                            kitchenSize !== 'None' && 
+                            kitchenSize !== 'N/A' && 
+                            kitchenSize.toLowerCase() !== 'none';
+          if (!hasKitchen) return;
         }
         
         filtered++;
@@ -439,11 +443,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   const [filters, setFilters] = useState({
     minSqft: -1,     // Start with "any size"
     maxSqft: -1,     // Start with "any size" (show all units)
-    hasKitchen: 'any' as 'any' | 'yes' | 'no'
+    hasKitchen: 'any' as 'any' | 'yes'
   });
 
 
-  // Generate square footage options (0 to 20000 in increments of 250)
+  // Generate square footage options (500 to 18,205 sf per client requirements)
   const sqftOptions = useMemo(() => {
     const options = [];
     
@@ -453,10 +457,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
       label: 'any size'
     });
     
-    for (let i = 0; i <= 20000; i += 250) {
+    // Start from 500sf as per client minimum, go to 18,205sf maximum
+    for (let i = 500; i <= 18205; i += 250) {
       options.push({
         value: i,
-        label: i === 0 ? '0' : i.toString()
+        label: `${i.toLocaleString()}sf`
       });
     }
     return options;
@@ -720,38 +725,16 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   
   const buildings = getBuildingList();
   
-  // Toggle tree path expansion with smart auto-close behavior
+  // Toggle tree path expansion - simple toggle behavior
   const toggleExpand = (path: string) => {
     setExpandedPaths(prev => {
       const isCurrentlyExpanded = prev[path];
       
       if (!isCurrentlyExpanded) {
-        // Opening a folder - only close siblings at the same level
-        const newPaths = { ...prev };
-        
-        // Keep the current path as expanded
-        newPaths[path] = true;
-        
-        // Determine the level of this path (count slashes)
-        const pathLevel = (path.match(/\//g) || []).length;
-        
-        // Only close folders at the same level (siblings)
-        Object.keys(prev).forEach(existingPath => {
-          if (existingPath !== path) {
-            const existingLevel = (existingPath.match(/\//g) || []).length;
-            
-            // Only close if it's at the same level (sibling folders)
-            if (existingLevel === pathLevel) {
-              newPaths[existingPath] = false;
-            }
-          }
-        });
-        
-        return newPaths;
+        // Opening a folder - just set it to expanded
+        return { ...prev, [path]: true };
       } else {
         // Closing the folder - clear selections and toggle it off
-        
-        // Clear all selections when closing a folder
         const { clearSelection } = useGLBState.getState();
         clearSelection();
         
@@ -760,12 +743,16 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     });
   };
   
-  // Filter buildings based on search term
+  // Filter buildings based on search term and exclude other/stages folders
   const filteredBuildings = useMemo(() => {
-    if (!searchTerm.trim()) return buildings;
+    // Only include the main three buildings, exclude "other" and "stages"
+    const allowedBuildings = ['Fifth Street Building', 'Maryland Building', 'Tower Building'];
+    const mainBuildings = buildings.filter(building => allowedBuildings.includes(building));
+    
+    if (!searchTerm.trim()) return mainBuildings;
     
     const lowerSearch = searchTerm.toLowerCase();
-    return buildings.filter(building => 
+    return mainBuildings.filter(building => 
       building.toLowerCase().includes(lowerSearch)
     );
   }, [buildings, searchTerm]);
@@ -796,13 +783,13 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     if (filters.maxSqft !== -1 && sqft > filters.maxSqft) return false;
     
     // Kitchen filter
-    if (filters.hasKitchen !== 'any') {
-      const hasKitchen = unitData.kitchen_size && 
-                        unitData.kitchen_size !== 'None' && 
-                        unitData.kitchen_size !== 'N/A';
-      
-      if (filters.hasKitchen === 'yes' && !hasKitchen) return false;
-      if (filters.hasKitchen === 'no' && hasKitchen) return false;
+    if (filters.hasKitchen === 'yes') {
+      const kitchenSize = unitData.kitchen_size;
+      const hasKitchen = kitchenSize && 
+                        kitchenSize !== 'None' && 
+                        kitchenSize !== 'N/A' && 
+                        kitchenSize.toLowerCase() !== 'none';
+      if (!hasKitchen) return false;
     }
     
     return true;
@@ -834,10 +821,14 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         if (filters.minSqft !== -1 && sqft < filters.minSqft) return;
         if (filters.maxSqft !== -1 && sqft > filters.maxSqft) return;
         
-        if (filters.hasKitchen !== 'any') {
-          const hasKitchen = unit.kitchen_size && unit.kitchen_size !== 'None';
-          if (filters.hasKitchen === 'yes' && !hasKitchen) return;
-          if (filters.hasKitchen === 'no' && hasKitchen) return;
+        // Kitchen filter
+        if (filters.hasKitchen === 'yes') {
+          const kitchenSize = unit.kitchen_size;
+          const hasKitchen = kitchenSize && 
+                            kitchenSize !== 'None' && 
+                            kitchenSize !== 'N/A' && 
+                            kitchenSize.toLowerCase() !== 'none';
+          if (!hasKitchen) return;
         }
         
         filteredUnits.add(unitName);
@@ -1239,17 +1230,31 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     }
   };
 
+  // Detect if we're on mobile for positioning
+  const deviceCapabilities = useMemo(() => detectDevice(), []);
+  const isMobile = deviceCapabilities.isMobile;
+
   return (
     <div 
       ref={panelRef}
-      className={`fixed left-2 sm:left-6 bg-white bg-opacity-55 backdrop-blur-md shadow-xl border border-white border-opacity-50 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-lg overflow-hidden ${
-        isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
+      className={`fixed bg-white bg-opacity-55 backdrop-blur-md shadow-xl border border-white border-opacity-50 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-lg overflow-hidden ${
+        isMobile 
+          ? `left-2 right-2 ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
+          : `left-2 sm:left-6 ${isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`
       }`}
       style={{
-        width: `${panelWidth}px`,
+        width: isMobile ? 'auto' : `${panelWidth}px`,
         height: `${panelHeight}px`,
-        bottom: window.innerWidth < 768 ? '80px' : '64px', // More space for mobile buttons
-        maxHeight: window.innerWidth < 768 ? 'calc(100vh - 160px)' : 'calc(100vh - 120px)', // Better mobile fit
+        ...(isMobile 
+          ? { 
+              top: '80px', // Below the top buttons on mobile
+              maxHeight: 'calc(100vh - 160px)' 
+            }
+          : { 
+              bottom: window.innerWidth < 768 ? '80px' : '64px',
+              maxHeight: window.innerWidth < 768 ? 'calc(100vh - 160px)' : 'calc(100vh - 120px)'
+            }
+        )
       }}
     >
       {/* Top resize handle */}
@@ -1363,39 +1368,30 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                     <Home size={12} className="text-gray-500" />
                     <span className="text-xs font-medium text-gray-700">Kitchen:</span>
                   </div>
-                  <div className="flex items-center space-x-1">
+                  <div className="flex space-x-1">
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'any' }))}
-                      className={`px-1.5 py-0.5 text-xs rounded transition-colors duration-150 ${
-                        filters.hasKitchen === 'any' 
-                          ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                      className={`flex-1 text-xs px-2 py-1 rounded transition-colors duration-150 ${
+                        filters.hasKitchen === 'any'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                       }`}
                     >
                       Any
                     </button>
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'yes' }))}
-                      className={`px-1.5 py-0.5 text-xs rounded transition-colors duration-150 ${
-                        filters.hasKitchen === 'yes' 
-                          ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                      className={`flex-1 text-xs px-2 py-1 rounded transition-colors duration-150 ${
+                        filters.hasKitchen === 'yes'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                       }`}
                     >
                       With Kitchen
                     </button>
-                    <button
-                      onClick={() => setFilters(prev => ({ ...prev, hasKitchen: 'no' }))}
-                      className={`px-1.5 py-0.5 text-xs rounded transition-colors duration-150 ${
-                        filters.hasKitchen === 'no' 
-                          ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                          : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                      }`}
-                    >
-                      No Kitchen
-                    </button>
                   </div>
                 </div>
+                
               </div>
             </div>
             
@@ -1533,12 +1529,21 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
                   
                   {/* Floorplan Viewer */}
                   {selectedUnitDetails ? (
-                    <FloorplanViewer
-                      floorplanUrl={selectedUnitDetails.floorplan_url || selectedUnitDetails.floorPlanUrl || null}
-                      unitName={selectedUnitDetails.unit_name}
-                      onExpand={onExpandFloorplan}
-                      unitData={selectedUnitDetails}
-                    />
+                    <>
+                      {console.log('📋 ExploreUnitsPanel: Rendering FloorplanViewer for:', {
+                        unit: selectedUnitDetails.unit_name,
+                        floorplan_url: selectedUnitDetails.floorplan_url,
+                        floorPlanUrl: selectedUnitDetails.floorPlanUrl,
+                        building: selectedUnitDetails.building,
+                        floor: selectedUnitDetails.floor
+                      })}
+                      <FloorplanViewer
+                        floorplanUrl={selectedUnitDetails.floorplan_url || selectedUnitDetails.floorPlanUrl || null}
+                        unitName={selectedUnitDetails.unit_name}
+                        onExpand={onExpandFloorplan}
+                        unitData={selectedUnitDetails}
+                      />
+                    </>
                   ) : (
                     <div className="text-center text-gray-500 p-4">
                       Select a unit to view floorplan

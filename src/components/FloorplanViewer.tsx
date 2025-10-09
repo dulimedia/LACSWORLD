@@ -26,6 +26,8 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   onExpand,
   unitData
 }) => {
+  console.log('🖼️ FloorplanViewer RENDER:', { unitName, floorplanUrl, unitData });
+  
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -127,6 +129,7 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
   useEffect(() => {
     // Don't load anything if no valid unit name provided
     if (!unitName || unitName === 'Unit') {
+      console.log('🖼️ FloorplanViewer: No valid unit name provided');
       setFinalImageUrl(FALLBACK_FLOORPLAN);
       setImageLoading(false);
       setImageError(true);
@@ -140,19 +143,29 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
     setZoom(100);
     setRotation(0);
 
-    const loadFloorplan = async () => {
+    let loadTimeout: NodeJS.Timeout | undefined;
+    
+    const loadFloorplan = () => {
+      console.log('🖼️ FloorplanViewer: Loading floorplan for unit:', unitName);
+      console.log('🖼️ FloorplanViewer: Input floorplanUrl:', floorplanUrl);
+      console.log('🖼️ FloorplanViewer: Unit data:', unitData);
       
       // First try intelligent mapping, then fallback to original service
       let intelligentUrl = getIntelligentFloorplanUrl(unitName, unitData);
+      console.log('🖼️ FloorplanViewer: Intelligent mapping returned:', intelligentUrl);
+      
       let finalUrl: string;
       
       if (intelligentUrl) {
         // Use the floorplanService to construct the full URL
         finalUrl = getFloorplanUrl(intelligentUrl);
+        console.log('🖼️ FloorplanViewer: Final URL (from intelligent):', finalUrl);
       } else if (floorplanUrl) {
         // Use the floorplanService to construct the full URL
         finalUrl = getFloorplanUrl(floorplanUrl);
+        console.log('🖼️ FloorplanViewer: Final URL (from prop):', finalUrl);
       } else {
+        console.warn('⚠️ FloorplanViewer: No floorplan URL found, using fallback');
         finalUrl = FALLBACK_FLOORPLAN;
         setImageLoading(false);
         setImageError(true);
@@ -162,9 +175,19 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
       
       // Only proceed if we have a valid URL
       if (finalUrl && finalUrl !== FALLBACK_FLOORPLAN) {
+        console.log('✅ FloorplanViewer: Setting final image URL:', finalUrl);
         setFinalImageUrl(finalUrl);
-        // Let the img element's onLoad/onError handlers manage loading state
+        
+        // Set a timeout to prevent infinite loading state
+        loadTimeout = setTimeout(() => {
+          console.warn('⏱️ FloorplanViewer: Image load timeout after 10 seconds');
+          if (imageLoading) {
+            setImageLoading(false);
+            setImageError(true);
+          }
+        }, 10000);
       } else {
+        console.warn('⚠️ FloorplanViewer: Invalid final URL, using fallback');
         setFinalImageUrl(FALLBACK_FLOORPLAN);
         setImageLoading(false);
         setImageError(true);
@@ -172,17 +195,28 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
     };
     
     loadFloorplan();
+    
+    // Return cleanup function
+    return () => {
+      if (loadTimeout) {
+        clearTimeout(loadTimeout);
+      }
+    };
   }, [floorplanUrl, unitName, unitData]);
 
   const handleImageLoad = () => {
+    console.log('✅ FloorplanViewer: Image loaded successfully:', finalImageUrl);
     setImageLoading(false);
     setImageError(false);
   };
 
   const handleImageError = () => {
+    console.error('❌ FloorplanViewer: Image failed to load:', finalImageUrl);
+    console.error('❌ FloorplanViewer: Retry count:', retryCount);
     setImageLoading(false);
     if (retryCount < 2 && finalImageUrl !== FALLBACK_FLOORPLAN) {
       // Retry up to 2 times for non-fallback images
+      console.log('🔄 FloorplanViewer: Retrying image load...');
       setTimeout(() => {
         setRetryCount(prev => prev + 1);
         setImageLoading(true);
@@ -190,6 +224,7 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
       }, 1000);
     } else {
       // Use fallback image
+      console.warn('⚠️ FloorplanViewer: Max retries reached, using fallback');
       setFinalImageUrl(FALLBACK_FLOORPLAN);
       setImageError(true);
     }
@@ -217,7 +252,8 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
     if (finalImageUrl && finalImageUrl !== FALLBACK_FLOORPLAN) {
       const link = document.createElement('a');
       link.href = finalImageUrl;
-      link.download = `${unitName}-floorplan.jpg`;
+      // Always download as PNG (highest quality)
+      link.download = `${unitName}-floorplan.png`;
       link.click();
     }
   };
@@ -319,12 +355,12 @@ export const FloorplanViewer: React.FC<FloorplanViewerProps> = ({
           data-floorplan-image
         >
           <img
-            key={`${unitName}-${finalImageUrl}`} // Force re-render when unit or URL changes
+            key={`${unitName}-${finalImageUrl}`}
             src={finalImageUrl}
             alt={`${unitName} Floorplan`}
             onLoad={handleImageLoad}
             onError={handleImageError}
-            className={`max-w-full h-auto ${imageLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ${imageError ? 'hidden' : 'block'}`}
+            className={`max-w-full h-auto transition-opacity duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'} ${imageError ? 'hidden' : 'block'}`}
             style={{
               maxHeight: isFullscreen ? 'none' : '300px',
               objectFit: 'contain',

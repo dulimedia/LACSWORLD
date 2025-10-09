@@ -60,7 +60,7 @@ export const HoverToast: React.FC<HoverToastProps> = ({ className = '' }) => {
       </div>
       {hoveredUnit.area_sqft && (
         <div className="text-xs text-gray-600 mt-1">
-          {hoveredUnit.area_sqft.toLocaleString()} sq ft · {hoveredUnit.status}
+          {hoveredUnit.area_sqft.toLocaleString()}sf · {hoveredUnit.status}
         </div>
       )}
     </div>

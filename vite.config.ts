@@ -9,9 +9,9 @@ export default defineConfig({
   plugins: [react()],
   base: isProd ? '/threejs-visualizer-/' : '/',
   server: {
-    host: '127.0.0.1',     // bind loopback to avoid WSL weirdness
-    port: 5173,            // Vite default (safe)
-    strictPort: true,      // fail if taken; don't silently switch
+    host: '0.0.0.0',
+    port: 3092,
+    strictPort: false,
   },
   preview: {
     host: '127.0.0.1',

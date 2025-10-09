@@ -76,7 +76,7 @@ export const UnitHoverPreview: React.FC<UnitHoverPreviewProps> = ({
             <div className="text-sm font-semibold text-gray-900 mb-1">{unitName}</div>
             {unitData?.area_sqft && (
               <div className="text-xs text-gray-600 font-medium">
-                {unitData.area_sqft.toLocaleString()} sq ft
+                {unitData.area_sqft.toLocaleString()}sf
               </div>
             )}
             {unitData?.status && (

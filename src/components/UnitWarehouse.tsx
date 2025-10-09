@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF, useFBX } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Mesh, Object3D, MeshStandardMaterial, MeshPhysicalMaterial, Material, Color } from 'three';
@@ -9,6 +9,7 @@ import { useFilterStore } from '../stores/useFilterStore';
 import FresnelMaterial from '../materials/FresnelMaterial';
 import PalmTreeInstancerSimple from './PalmTreeInstancerSimple';
 import { assetUrl } from '../lib/assets';
+import { PerfFlags } from '../perf/PerfFlags';
 
 class UnitWarehouseErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: any }> {
   constructor(props: { children: React.ReactNode }) {
@@ -34,7 +35,7 @@ class UnitWarehouseErrorBoundary extends React.Component<{ children: React.React
 
 
 function BoundingSphere({ onBoundingSphereData }: { onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void }) {
-  const { scene } = useGLTF(assetUrl('models/environment/white wall.glb'));
+  const { scene } = useGLTF(assetUrl('models/environment/road.glb'));
 
   React.useEffect(() => {
     if (scene) {
@@ -48,16 +49,10 @@ function BoundingSphere({ onBoundingSphereData }: { onBoundingSphereData?: (data
       if (onBoundingSphereData) {
         onBoundingSphereData({ center, radius });
       }
-
-      scene.traverse((child: any) => {
-        if (child.isMesh) {
-          child.visible = false; 
-        }
-      });
     }
   }, [scene, onBoundingSphereData]);
 
-  return <primitive object={scene} />;
+  return null;
 }
 
 interface UnitWarehouseProps {
@@ -73,9 +68,7 @@ interface UnitWarehouseProps {
 }
 
 const isUnitFile = (fileName:string): boolean => {
-  if (fileName.toLowerCase().includes('stage c')) {
-    return false;
-  }
+  // Remove special Stage C exclusion to prevent z-fighting
   return !fileName.startsWith('boxes/');
 };
 
@@ -87,19 +80,18 @@ const getUnitName = (fileName: string): string => {
   return fileName.replace('.glb', '');
 };
 
-const SingleModel: React.FC<{
+const SingleModelGLB: React.FC<{
   fileName: string;
+  modelUrl: string;
   onLoad: (model: LoadedModel) => void;
   onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void;
-}> = React.memo(({ fileName, onLoad, onBoundingSphereData }) => {
-  const modelUrl = assetUrl(`models/${fileName}`);
-
+}> = React.memo(({ fileName, modelUrl, onLoad, onBoundingSphereData }) => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const hasLogged = useRef(false);
+  const { gl } = useThree();
 
   const useDraco = true;
-
   const { scene, materials } = useGLTF(modelUrl, useDraco);
 
   if (!scene) {
@@ -132,6 +124,206 @@ const SingleModel: React.FC<{
 
       const whiteMaterial = new THREE.MeshStandardMaterial({ color: 'white' });
 
+      // Process materials immediately for transparent buildings and shadows
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          // Store original material
+          if (Array.isArray(child.material)) {
+            (child as any).userData.originalMaterial = (child.material as any).map((m: any) =>
+              m && typeof m.clone === 'function' ? m.clone() : m
+            );
+          } else {
+            (child as any).userData.originalMaterial = (child.material && typeof (child.material as any).clone === 'function')
+              ? (child.material as any).clone()
+              : child.material;
+          }
+
+          // Enable shadows for all meshes
+          child.castShadow = true;
+          child.receiveShadow = true;
+          child.userData.shadowsConfigured = true;
+
+          // Anisotropic filtering for textures (enhanced on desktop)
+          if (child.material) {
+            const maxAnisotropy = gl.capabilities.getMaxAnisotropy();
+            const anisotropyLevel = PerfFlags.tier === "desktopHigh" ? maxAnisotropy : 16;
+            
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((mat) => {
+              if (mat.map) mat.map.anisotropy = anisotropyLevel;
+              if ((mat as any).normalMap) (mat as any).normalMap.anisotropy = anisotropyLevel;
+              if ((mat as any).roughnessMap) (mat as any).roughnessMap.anisotropy = anisotropyLevel;
+              if ((mat as any).metalnessMap) (mat as any).metalnessMap.anisotropy = anisotropyLevel;
+            });
+          }
+
+          // Transparent buildings - enhanced material with subtle physical properties
+          if (fileName.includes('transparent buildings')) {
+            console.log('🟢 Applying enhanced glass material to transparent buildings');
+            
+            const glassMaterial = new THREE.MeshPhysicalMaterial({
+              color: 0xA9BCB8,
+              transparent: true,
+              opacity: 0.25,
+              roughness: 0.3,
+              metalness: 0.0,
+              clearcoat: 0.1,
+              clearcoatRoughness: 0.3,
+              side: THREE.DoubleSide,
+              depthWrite: false,
+              alphaToCoverage: true,
+              envMapIntensity: 0.5,
+              emissive: 0x000000,
+              emissiveIntensity: 0,
+              toneMapped: true
+            });
+            
+            child.material = glassMaterial;
+            child.renderOrder = 100;
+            child.material.needsUpdate = true;
+          }
+
+          // White wall - nearly invisible (95% transparent)
+          if (fileName.includes('white wall')) {
+            child.visible = true;
+            if (child.material && !Array.isArray(child.material)) {
+              const mat = child.material as THREE.MeshStandardMaterial;
+              mat.transparent = true;
+              mat.opacity = 0.05;
+              mat.depthWrite = false;
+              mat.needsUpdate = true;
+            }
+          }
+
+
+          // Keep standard materials for stability - physical materials can be added selectively later
+          child.userData.materialOptimized = true;
+          child.userData.isOptimizable = true;
+        }
+      });
+
+      const modelName = getUnitName(fileName);
+      scene.name = modelName;
+
+      const isUnit = isUnitFile(fileName);
+      const isBridge = isBridgeFile(fileName);
+
+      const consolidatedFiles = new Set([
+        'environment/accessory concrete.glb',
+        'environment/hq sidewalk 2.glb',
+        'environment/road.glb',
+        'environment/stages.glb',
+        'environment/transparent buildings.glb',
+        'environment/transparents sidewalk.glb',
+        'environment/white wall.glb',
+        'environment/frame-raw-14.glb',
+        'environment/roof and walls.glb',
+        'environment/maryland street .glb'
+      ]);
+
+      const isBoxFile = fileName.startsWith('boxes/');
+
+      if (!consolidatedFiles.has(fileName) && !fileName.startsWith('boxes/')) {
+        scene.updateMatrixWorld(true);
+        const bbox = new THREE.Box3().setFromObject(scene);
+        const center = bbox.getCenter(new THREE.Vector3());
+        const size = bbox.getSize(new THREE.Vector3());
+        scene.position.set(-center.x, -center.y - 3, -center.z);
+        scene.rotation.set(0, 0, 0);
+        if ((scene as any).quaternion && typeof (scene as any).quaternion.identity === 'function') {
+          (scene as any).quaternion.identity();
+        }
+        scene.updateMatrixWorld(true);
+      }
+
+      scene.updateMatrixWorld(true);
+      
+      const loadedModel: LoadedModel = {
+        name: modelName,
+        object: scene,
+        isUnit,
+        isBridge
+      };
+
+      // Removed special Stage C material handling to fix z-fighting issues
+      // All stages now use standard material processing
+
+      onLoad(loadedModel);
+    }
+  }, [scene, fileName, onLoad]);
+
+  if (loadError) {
+    console.error('Model load error for:', fileName, loadError);
+    return null; 
+  }
+
+  if (isLoading) {
+    return null; 
+  }
+
+  return null; 
+});
+
+const SingleModelFBX: React.FC<{
+  fileName: string;
+  modelUrl: string;
+  onLoad: (model: LoadedModel) => void;
+  onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void;
+}> = React.memo(({ fileName, modelUrl, onLoad, onBoundingSphereData }) => {
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const hasLogged = useRef(false);
+
+  const scene = useFBX(modelUrl);
+  const materials = {};
+
+  if (!scene) {
+    console.error('Scene not loaded for:', fileName);
+    return null; 
+  }
+
+  useEffect(() => {
+    if (fileName.startsWith('boxes/')) {
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (scene && isLoading) {
+        setIsLoading(false);
+      }
+    } catch (e) {
+      console.error('Error in SingleModelFBX load detection effect:', e);
+    }
+  }, [scene, isLoading]);
+
+  useEffect(() => {
+    if (scene && !hasLogged.current) {
+      hasLogged.current = true;
+
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          
+          // Anisotropic filtering for textures (enhanced on desktop)
+          if (child.material) {
+            const maxAnisotropy = gl.capabilities.getMaxAnisotropy();
+            const anisotropyLevel = PerfFlags.tier === "desktopHigh" ? maxAnisotropy : 16;
+            
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((mat) => {
+              if (mat.map) mat.map.anisotropy = anisotropyLevel;
+              if ((mat as any).normalMap) (mat as any).normalMap.anisotropy = anisotropyLevel;
+              if ((mat as any).roughnessMap) (mat as any).roughnessMap.anisotropy = anisotropyLevel;
+              if ((mat as any).metalnessMap) (mat as any).metalnessMap.anisotropy = anisotropyLevel;
+            });
+          }
+        }
+      });
+
+      const whiteMaterial = new THREE.MeshStandardMaterial({ color: 'white' });
+
       const processMaterials = () => {
         const meshesToProcess: THREE.Mesh[] = [];
 
@@ -158,46 +350,14 @@ const SingleModel: React.FC<{
                 : child.material;
             }
 
-            child.castShadow = true;
-            child.receiveShadow = true;
-
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach((mat: THREE.Material, index: number) => {
-                  // Skip invalid materials only
-                  if (!mat) {
-                    console.warn('⚠️ Skipping invalid material in processing:', mat?.name);
-                    return;
-                  }
-                  if (mat instanceof THREE.MeshStandardMaterial) {
-                    mat.envMapIntensity = 1.1; // further increased for brighter, less contrasted scene
-                    mat.roughness = Math.max(mat.roughness, 0.4); // increase roughness to reduce sharp reflections and contrast
-                    mat.metalness = Math.min(mat.metalness, 0.8);
-                    mat.needsUpdate = true;
-
-                    child.userData[`originalRoughness_${index}`] = mat.roughness;
-                    child.userData[`originalMetalness_${index}`] = mat.metalness;
-                    child.userData[`originalColor_${index}`] = mat.color ? mat.color.clone() : null;
-                    child.userData.isOptimizable = true;
-                  }
-                });
-              } else if (child.material instanceof THREE.MeshStandardMaterial) {
-                // Skip invalid materials only
-                if (!child.material) {
-                  console.warn('⚠️ Skipping invalid single material in processing');
-                  return;
-                }
-                child.material.envMapIntensity = 1.1; // further increased for brighter, less contrasted scene
-                child.material.roughness = Math.max(child.material.roughness, 0.4); // increase roughness to reduce sharp reflections and contrast
-                child.material.metalness = Math.min(child.material.metalness, 0.8);
-                child.material.needsUpdate = true;
-
-                child.userData.originalRoughness = child.material.roughness;
-                child.userData.originalMetalness = child.material.metalness;
-                child.userData.originalColor = child.material.color ? child.material.color.clone() : null;
-                child.userData.isOptimizable = true;
-              }
+            if (!child.userData.shadowsConfigured) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+              child.userData.shadowsConfigured = true;
             }
+
+            child.userData.materialOptimized = true;
+            child.userData.isOptimizable = true;
           });
 
           processedCount += batchSize;
@@ -208,7 +368,6 @@ const SingleModel: React.FC<{
             } else {
               setTimeout(() => processBatch(), 0);
             }
-          } else {
           }
         };
 
@@ -228,16 +387,7 @@ const SingleModel: React.FC<{
       const isBridge = isBridgeFile(fileName);
 
       const consolidatedFiles = new Set([
-        'environment/accessory concrete.glb',
-        'environment/hq sidewalk 2.glb',
-        'environment/roads.glb',
-        'environment/stages.glb',
-        'environment/transparent buildings.glb',
-        'environment/transparents sidewalk.glb',
-        'environment/white wall.glb',
-        'environment/frame-raw-13.glb',
-        'environment/roof and walls.glb',
-        'environment/maryland street .glb'
+        'FULL_BUILD/LA CENTER WORLD.fbx'
       ]);
 
       const isBoxFile = fileName.startsWith('boxes/');
@@ -253,7 +403,6 @@ const SingleModel: React.FC<{
           (scene as any).quaternion.identity();
         }
         scene.updateMatrixWorld(true);
-      } else {
       }
 
       scene.updateMatrixWorld(true);
@@ -265,29 +414,30 @@ const SingleModel: React.FC<{
         isBridge
       };
 
-      if (fileName.toLowerCase().includes('stage c')) {
-        const whiteMaterial = new THREE.MeshStandardMaterial({ color: 'white' });
-        scene.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.material = whiteMaterial;
-          }
-        });
-      }
-
       onLoad(loadedModel);
     }
   }, [scene, fileName, onLoad]);
-
-  if (loadError) {
-    console.error('Model load error for:', fileName, loadError);
-    return null; 
-  }
 
   if (isLoading) {
     return null; 
   }
 
-  return null; 
+  return <primitive object={scene} />; 
+});
+
+const SingleModel: React.FC<{
+  fileName: string;
+  onLoad: (model: LoadedModel) => void;
+  onBoundingSphereData?: (data: {center: THREE.Vector3, radius: number}) => void;
+}> = React.memo(({ fileName, onLoad, onBoundingSphereData }) => {
+  const modelUrl = assetUrl(`models/${fileName}`);
+  const isFBX = fileName.endsWith('.fbx');
+
+  if (isFBX) {
+    return <SingleModelFBX fileName={fileName} modelUrl={modelUrl} onLoad={onLoad} onBoundingSphereData={onBoundingSphereData} />;
+  }
+
+  return <SingleModelGLB fileName={fileName} modelUrl={modelUrl} onLoad={onLoad} onBoundingSphereData={onBoundingSphereData} />;
 });
 
 const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
@@ -348,12 +498,12 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
   const allModels = useMemo(() => [
     'environment/accessory concrete.glb',
     'environment/hq sidewalk 2.glb',
-    'environment/roads.glb',
+    'environment/road.glb',
     'environment/stages.glb',
     'environment/transparent buildings.glb',
     'environment/transparents sidewalk.glb',
     'environment/white wall.glb',
-    'environment/frame-raw-13.glb',
+    'environment/frame-raw-14.glb',
     'environment/roof and walls.glb',
     'environment/maryland street .glb'
   ], []);
@@ -374,10 +524,12 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
   const handleModelLoad = useCallback((model: LoadedModel) => {
     loadedModelsRef.current.push(model);
     if (onLoadingProgress) {
-      onLoadingProgress(loadedModelsRef.current.length, allModels.length);
+      const totalModels = allModels.length + boxFiles.length;
+      const loadedCount = loadedModelsRef.current.length + loadedBoxModelsCollection.current.length;
+      onLoadingProgress(loadedCount, totalModels);
       if (loadedModelsRef.current.length === allModels.length) setModelsLoaded(true); 
     }
-  }, [onLoadingProgress, allModels.length]);
+  }, [onLoadingProgress, allModels.length, boxFiles.length]);
 
   const handleBoxModelLoad = useCallback((model: LoadedModel, unitId: string) => {
     let meshCount = 0;
@@ -399,6 +551,12 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
 
     loadedBoxModelsCollection.current = [...loadedBoxModelsCollection.current, model];
 
+    if (onLoadingProgress) {
+      const totalModels = allModels.length + boxFiles.length;
+      const loadedCount = loadedModelsRef.current.length + loadedBoxModelsCollection.current.length;
+      onLoadingProgress(loadedCount, totalModels);
+    }
+
     if (loadedBoxModelsCollection.current.length === boxFiles.length) {
       setBoxLoadedModels(loadedBoxModelsCollection.current);
     }
@@ -406,7 +564,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     if (meshCount === 0) {
       console.warn(`⚠️ Box model ${unitId} has no meshes!`);
     }
-  }, [boxFiles.length]);
+  }, [boxFiles.length, onLoadingProgress, allModels.length]);
 
   // Helper function to check if unit is available in CSV data
   const isUnitAvailable = useCallback((unitName: string): boolean => {
@@ -621,7 +779,8 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
 
               child.material.roughness = Math.min(child.userData.originalRoughness + fadeAmount * 0.8, 1.0);
               child.material.metalness = Math.max(child.userData.originalMetalness - fadeAmount * 0.6, 0.0);
-              child.castShadow = false;
+              // Keep shadows enabled even during fade
+              child.castShadow = true;
 
             } else {
               child.material.roughness = child.userData.originalRoughness;
@@ -660,7 +819,6 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
             return null;
           }
 
-
           return boxFiles.map((boxPath) => (
             <SingleModel
               key={boxPath}
@@ -676,7 +834,7 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
       {boxLoadedModels.map((model) => (
         <primitive key={`box-${model.name}`} object={model.object} />
       ))}
-      {loadedModels.map((model) => (
+      {loadedModels.filter(m => !m.name.endsWith('.fbx')).map((model) => (
         <primitive key={model.name} object={model.object} />
       ))}
       

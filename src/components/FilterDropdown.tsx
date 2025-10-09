@@ -149,7 +149,9 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = React.memo(({
             {isAvailable ? <Circle size={10} className="text-green-500" /> : <Square size={10} className="text-red-500" />}
             <span className="text-sm font-medium">{displayName.replace(/\.glb$/i, '')}</span>
           </div>
-          <div className="text-xs text-gray-500">{unitMeta?.size ?? ''}</div>
+          <div className="text-xs text-gray-500">
+            {unitMeta?.area_sqft ? `${unitMeta.area_sqft.toLocaleString()}sf` : unitMeta?.size ?? ''}
+          </div>
         </div>
       );
     } else {
@@ -253,7 +255,14 @@ export const FilterDropdown: React.FC<FilterDropdownProps> = React.memo(({
 
         {tree ? (
           <div>
-            {tree.children && tree.children.map((child, idx) => renderNode(child, `${tree.name}/${typeof child === 'string' ? child : child.name}-${idx}`, []))}
+            {tree.children && tree.children
+              .filter((child) => {
+                // Filter out "other" and "stages" folders
+                if (typeof child === 'string') return true;
+                const allowedBuildings = ['Fifth Street Building', 'Maryland Building', 'Tower Building'];
+                return allowedBuildings.includes(child.name);
+              })
+              .map((child, idx) => renderNode(child, `${tree.name}/${typeof child === 'string' ? child : child.name}-${idx}`, []))}
           </div>
         ) : (
           <div className="p-4 text-sm text-gray-500">Loading units...</div>

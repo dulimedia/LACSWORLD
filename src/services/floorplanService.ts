@@ -86,12 +86,16 @@ export function getFloorplanUrl(
   floorplanUrl: string | null | undefined,
   fallbackUrl: string = FALLBACK_FLOORPLAN
 ): string {
+  console.log('🔧 FloorplanService: getFloorplanUrl called with:', floorplanUrl);
+  
   if (!floorplanUrl) {
+    console.log('🔧 FloorplanService: No URL provided, returning fallback:', fallbackUrl);
     return fallbackUrl;
   }
   
   // If it's already a full URL, return as-is
   if (floorplanUrl.startsWith('http://') || floorplanUrl.startsWith('https://')) {
+    console.log('🔧 FloorplanService: URL is absolute, returning as-is');
     return floorplanUrl;
   }
   
@@ -103,13 +107,14 @@ export function getFloorplanUrl(
     normalizedPath = normalizedPath.substring(1);
   }
   
-  // URL encode the path to handle spaces and special characters
-  const pathParts = normalizedPath.split('/');
-  const encodedParts = pathParts.map(part => encodeURIComponent(part));
-  const encodedPath = encodedParts.join('/');
-  
-  // Combine with base URL
-  const finalUrl = import.meta.env.BASE_URL + encodedPath;
+  // Combine with base URL - Vite handles URL encoding automatically
+  const finalUrl = import.meta.env.BASE_URL + normalizedPath;
+  console.log('🔧 FloorplanService: Final URL constructed:', { 
+    input: floorplanUrl, 
+    normalized: normalizedPath, 
+    baseUrl: import.meta.env.BASE_URL,
+    final: finalUrl 
+  });
   return finalUrl;
 }
 

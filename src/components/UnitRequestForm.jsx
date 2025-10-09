@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Send, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import { useCsvUnitData } from '../hooks/useCsvUnitData';
+import { detectDevice } from '../utils/deviceDetection';
 
 const UnitRequestForm = ({ isOpen, onClose }) => {
   const [selectedUnits, setSelectedUnits] = useState(new Set());
@@ -11,8 +12,8 @@ const UnitRequestForm = ({ isOpen, onClose }) => {
   const [expandedBuildings, setExpandedBuildings] = useState(new Set());
   const [isSending, setIsSending] = useState(false);
   
-  // Google Sheets CSV data source - published public spreadsheet
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRDfR23epOzgSvWy5zup1Uk5W1X-QJsrQp3yzXlN1MvZHCfEZqZrF8Rf2SrP81eNhWVPtX9olHf_wCT/pub?output=csv';
+  // Google Sheets CSV data source - Updated to new spreadsheet
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBerrxFj5qKyqlWidn983mMQWCNBBsl824Nr8qSiHNqNaIKAr-RLEhDP_P2TuVnewkLms8EFdBiY2T/pub?output=csv';
   const { data: csvUnitData, loading: isUnitDataLoading, error } = useCsvUnitData(CSV_URL);
 
   // Generate units structure from CSV data, filtering only available units
@@ -278,11 +279,21 @@ Sent from LA Center Unit Request System
     }
   };
 
+  // Detect mobile for positioning
+  const deviceCapabilities = useMemo(() => detectDevice(), []);
+  const isMobile = deviceCapabilities.isMobile;
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex p-2 sm:p-4" style={{
+      alignItems: isMobile ? 'flex-start' : 'center',
+      justifyContent: 'center',
+      paddingTop: isMobile ? '80px' : '16px'
+    }}>
+      <div className={`bg-white rounded-lg max-w-4xl w-full overflow-hidden flex flex-col transition-all duration-500 ease-in-out transform ${
+        isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[95vh] sm:max-h-[90vh]'
+      } ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
         {/* Header */}
         <div className="flex items-center justify-between p-3 sm:p-4 border-b">
           <h2 className="text-lg sm:text-xl font-bold">Unit Request Form</h2>
@@ -421,7 +432,7 @@ Sent from LA Center Unit Request System
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Please provide details about your inquiry..."
+                placeholder="Let us know when you need it, for how long, and any questions"
                 className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows="4"
                 required

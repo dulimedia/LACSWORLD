@@ -11,19 +11,20 @@ interface FloorplanMapping {
 const AVAILABLE_FLOORPLANS = [
   // Site map for stages and production areas
   'LACS_Site Map_M1_Color_page_1.png',
-  // First Street Building Ground Floor floorplan
+  // First Street Building floorplans
   'FGFloor_LACS_page_1.png',
-  'f10.jpg', 'f100.jpg', 'f105.jpg', 'f115.jpg', 'f140.jpg', 'f150.jpg',
-  'f160.jpg', 'f170.jpg', 'f175.jpg', 'f180.jpg', 'f185.jpg', 'f187.jpg',
-  'f190.jpg', 'f200.jpg', 'f240.jpg', 'f250.jpg', 'f280.jpg', 'f290.jpg',
-  'f300.jpg', 'f330.jpg', 'f340.jpg', 'f345.jpg', 'f350.jpg', 'f360.jpg',
-  'f363.jpg', 'f365.jpg', 'f380.jpg', 'm120.jpg', 'm130.jpg', 'm140.jpg',
-  'm145.jpg', 'm150.jpg', 'm160.jpg', 'm170.jpg', 'm180.jpg', 'm210.jpg',
-  'm220.jpg', 'm230.jpg', 'm240.jpg', 'm250.jpg', 'm260.jpg', 'm270.jpg',
-  'm300.jpg', 'm320.jpg', 'm340.jpg', 'm345.jpg', 'm350.jpg', 't200.jpg',
-  't210.jpg', 't220.jpg', 't230.jpg', 't310.jpg', 't320.jpg', 't340.jpg',
-  't400.jpg', 't410.jpg', 't420.jpg', 't430.jpg', 't450.jpg', 't500.jpg', 
-  't530.jpg', 't550.jpg', 't900.jpg', 't950.jpg',
+  'F1_Floorplan.png',
+  'f10.png', 'f100.png', 'f105.png', 'f115.png', 'f140.png', 'f150.png',
+  'f160.png', 'f170.png', 'f175.png', 'f180.png', 'f185.png', 'f187.png',
+  'f190.png', 'f200.png', 'f240.png', 'f250.png', 'f280.png', 'f290.png',
+  'f300.png', 'f330.png', 'f340.png', 'f345.png', 'f350.png', 'f360.png',
+  'f363.png', 'f365.png', 'f380.png', 'm120.png', 'm130.png', 'm140.png',
+  'm145.png', 'm150.png', 'm160.png', 'm170.png', 'm180.png', 'm210.png',
+  'm220.png', 'm230.png', 'm240.png', 'm250.png', 'm260.png', 'm270.png',
+  'm300.png', 'm320.png', 'm340.png', 'm345.png', 'm350.png', 't200.png',
+  't210.png', 't220.png', 't230.png', 't310.png', 't320.png', 't340.png',
+  't400.png', 't410.png', 't420.png', 't430.png', 't450.png', 't500.png', 
+  't530.png', 't550.png', 't900.png', 't950.png',
   // New Tower Building colored floorplans (PNG format)
   'LACS_Floor 1_M1_Color_page_1.png',
   'LACS_Floor 2_M1_Color_page_1.png', 
@@ -165,6 +166,11 @@ const SPECIAL_MAPPINGS: { [key: string]: string } = {
   'm40': 'mg floorplan.jpg', 
   'm45': 'mg floorplan.jpg',
   'm50': 'mg floorplan.jpg',
+  // First Street Building 1st floor units use F1_Floorplan.png fallback
+  'f110': 'F1_Floorplan.png',
+  'f110cr': 'F1_Floorplan.png',
+  'f120': 'F1_Floorplan.png',
+  'f130': 'F1_Floorplan.png',
   // All First Street Building Ground Floor units use the same floorplan
   'f10': 'FGFloor_LACS_page_1.png',
   'f15': 'FGFloor_LACS_page_1.png',
@@ -305,23 +311,13 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
     return `floorplans/converted/LACS_Site Map_M1_Color_page_1.png`;
   }
   
-  // If unit data already has a valid floorplan URL, return the path (without leading slash)
-  if (unitData?.floorplan_url && unitData.floorplan_url.trim()) {
-    let path = unitData.floorplan_url.trim();
-    if (path.startsWith('/')) {
-      path = path.substring(1);
-    }
-    return path;
-  }
-
   // If no unit name provided, can't do matching
   if (!unitName) {
     console.warn('⚠️ No unit name provided for floorplan lookup');
     return null;
   }
 
-
-  // Try direct matching approaches in order of confidence
+  // Try direct matching approaches in order of confidence (BEFORE checking CSV)
   const mappings: FloorplanMapping[] = [];
   
   const buildingPrefix = extractBuildingPrefix(unitName);
@@ -329,7 +325,7 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
 
   // 1. Exact clean match (highest confidence)
   for (const fileName of AVAILABLE_FLOORPLANS) {
-    const fileBase = fileName.replace('.jpg', '');
+    const fileBase = fileName.replace(/\.(jpg|png|webp)$/, '');
     if (cleanName === fileBase) {
       mappings.push({ unitPattern: unitName, fileName, confidence: 1.0 });
     }
@@ -337,9 +333,11 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
 
   // 2. Building prefix + number match (high confidence)
   if (buildingPrefix && unitNumber) {
-    const targetFile = `${buildingPrefix}${unitNumber}.jpg`;
-    if (AVAILABLE_FLOORPLANS.includes(targetFile)) {
-      mappings.push({ unitPattern: unitName, fileName: targetFile, confidence: 0.9 });
+    // Only use PNG - highest quality format
+    const targetFilePng = `${buildingPrefix}${unitNumber}.png`;
+    
+    if (AVAILABLE_FLOORPLANS.includes(targetFilePng)) {
+      mappings.push({ unitPattern: unitName, fileName: targetFilePng, confidence: 0.95 });
     }
   }
 
@@ -368,15 +366,41 @@ export function findFloorplanForUnit(unitName: string, unitData?: any): string |
   // Return the highest confidence match
   if (mappings.length > 0) {
     const bestMatch = mappings.sort((a, b) => b.confidence - a.confidence)[0];
+    console.log('✅ FloorplanMapping: Found match via intelligent mapping:', bestMatch.fileName);
     return `floorplans/converted/${bestMatch.fileName}`;
   }
 
+  // CSV fallback - ONLY if intelligent mapping found nothing
+  if (unitData?.floorplan_url && unitData.floorplan_url.trim()) {
+    let path = unitData.floorplan_url.trim();
+    const originalPath = path;
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+    // Fix extension if CSV has wrong extension - convert all to PNG
+    const beforeCorrection = path;
+    path = path.replace(/\.jpg$/, '.png').replace(/\.jpeg$/, '.png').replace(/\.webp$/, '.png');
+    if (beforeCorrection !== path) {
+      console.log('🔧 FloorplanMapping: Auto-corrected extension:', beforeCorrection, '→', path);
+    }
+    console.log('⚠️ FloorplanMapping: Using CSV fallback for', unitName, ':', path);
+    return path;
+  }
+
+  // Final fallback: First Street Building 1st floor units (F-1xx) use F1_Floorplan.png
+  if (buildingPrefix === 'f' && unitNumber && unitNumber.startsWith('1')) {
+    return `floorplans/converted/F1_Floorplan.png`;
+  }
+
+  console.warn('❌ FloorplanMapping: No floorplan found for:', unitName);
   return null;
 }
 
 // Get floorplan URL for a unit (main export function)
 export function getFloorplanUrl(unitName: string, unitData?: any): string | null {
-  return findFloorplanForUnit(unitName, unitData);
+  const result = findFloorplanForUnit(unitName, unitData);
+  console.log('🗺️ FloorplanMappingService: getFloorplanUrl called', { unitName, unitData, result });
+  return result;
 }
 
 // Batch update function to get all mappings for debugging

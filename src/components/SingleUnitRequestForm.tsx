@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Send, CheckCircle } from 'lucide-react';
+import { detectDevice } from '../utils/deviceDetection';
 
 interface SingleUnitRequestFormProps {
   isOpen: boolean;
@@ -103,11 +104,21 @@ Sent from LA Center Unit Request System
     }
   };
 
+  // Detect mobile for positioning
+  const deviceCapabilities = useMemo(() => detectDevice(), []);
+  const isMobile = deviceCapabilities.isMobile;
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex z-50" style={{
+      alignItems: isMobile ? 'flex-start' : 'center',
+      justifyContent: 'center',
+      paddingTop: isMobile ? '80px' : '0px'
+    }}>
+      <div className={`bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-y-auto transition-all duration-500 ease-in-out transform ${
+        isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[90vh]'
+      } ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>

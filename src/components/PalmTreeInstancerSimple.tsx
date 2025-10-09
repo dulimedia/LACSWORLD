@@ -14,29 +14,42 @@ const PalmTreeLoader = React.memo(() => {
   const palmTreeGltf = useGLTF(palmTreePath);
   const placeholdersGltf = useGLTF(placeholdersPath);
   
+  // Use ref to prevent infinite re-renders
+  const processedDataRef = useRef<{
+    placeholderPositions: THREE.Vector3[];
+    processedPalmTree: THREE.Object3D | null;
+    processed: boolean;
+  }>({
+    placeholderPositions: [],
+    processedPalmTree: null,
+    processed: false
+  });
+
   // Memoize the placeholder positions to prevent recalculation
-  const { placeholderPositions, processedPalmTree, processedPlaceholders } = useMemo(() => {
+  const { placeholderPositions, processedPalmTree } = useMemo(() => {
     if (!palmTreeGltf?.scene || !placeholdersGltf?.scene) {
-      return { placeholderPositions: [], processedPalmTree: null, processedPlaceholders: null };
+      return { placeholderPositions: [], processedPalmTree: null };
     }
     
-    // Extract placeholder positions
-    const positions: THREE.Vector3[] = [];
-    const placeholderScene = placeholdersGltf.scene.clone();
+    // Only process once
+    if (processedDataRef.current.processed) {
+      return {
+        placeholderPositions: processedDataRef.current.placeholderPositions,
+        processedPalmTree: processedDataRef.current.processedPalmTree
+      };
+    }
     
-    placeholderScene.traverse((child) => {
+    // Extract placeholder positions (without rendering the placeholders)
+    const positions: THREE.Vector3[] = [];
+    
+    placeholdersGltf.scene.traverse((child) => {
       if (child.type === 'Mesh' || child.type === 'Object3D') {
         const localPosition = child.position.clone();
         positions.push(localPosition);
-        
-        // Hide the original placeholder objects
-        if (child.type === 'Mesh') {
-          (child as THREE.Mesh).visible = false;
-        }
       }
     });
     
-    // Process palm tree
+    // Process palm tree (keep palm tree meshes hidden initially)
     const palmTreeScene = palmTreeGltf.scene.clone();
     palmTreeScene.traverse((child) => {
       if (child.type === 'Mesh') {
@@ -44,10 +57,18 @@ const PalmTreeLoader = React.memo(() => {
       }
     });
     
+    console.log(`🌴 Processed ${positions.length} placeholder positions (one-time processing)`);
+    
+    // Cache the results
+    processedDataRef.current = {
+      placeholderPositions: positions,
+      processedPalmTree: palmTreeScene,
+      processed: true
+    };
+    
     return { 
       placeholderPositions: positions, 
-      processedPalmTree: palmTreeScene,
-      processedPlaceholders: placeholderScene
+      processedPalmTree: palmTreeScene
     };
   }, [palmTreeGltf?.scene, placeholdersGltf?.scene]);
   
@@ -82,13 +103,13 @@ const PalmTreeLoader = React.memo(() => {
     });
   }, [processedPalmTree, placeholderPositions]);
   
-  if (!processedPlaceholders || palmTreeInstances.length === 0) {
+  if (!processedPalmTree || palmTreeInstances.length === 0) {
     return null;
   }
 
   return (
     <group>
-      <primitive object={processedPlaceholders} />
+      {/* Placeholders removed - we only need their positions for instancing */}
       {palmTreeInstances}
     </group>
   );

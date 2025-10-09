@@ -22,6 +22,29 @@ const GLBUnit: React.FC<GLBUnitProps> = ({ node }) => {
     console.warn(`⚠️ Failed to load GLB: ${node.key} at ${node.path}`, error);
     return null;
   }
+
+  // Immediately apply invisible material to prevent any rendering
+  useEffect(() => {
+    if (scene) {
+      // Use a completely invisible material that doesn't render anything
+      const invisibleMaterial = new THREE.MeshBasicMaterial({
+        visible: false,
+        transparent: true,
+        opacity: 0.0,
+        colorWrite: false,
+        depthWrite: false,
+        depthTest: false
+      });
+
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.material = invisibleMaterial;
+          child.visible = false;
+          child.renderOrder = -999; // Render behind everything
+        }
+      });
+    }
+  }, [scene]);
   // Material references removed - units are always hidden, ghost effect handled by overlay
   const { selectUnit } = useGLBState();
   const { setSelected } = useExploreState();
@@ -79,9 +102,22 @@ const GLBUnit: React.FC<GLBUnitProps> = ({ node }) => {
     const cloned = scene.clone();
     // Immediately hide the cloned scene to prevent any flash
     cloned.visible = false;
+    
+    // Apply invisible material to prevent any rendering
+    const invisibleMaterial = new THREE.MeshBasicMaterial({
+      visible: false,
+      transparent: true,
+      opacity: 0.0,
+      colorWrite: false,
+      depthWrite: false,
+      depthTest: false
+    });
+    
     cloned.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.visible = false;
+        // Apply invisible material to prevent any rendering
+        child.material = invisibleMaterial;
       }
     });
     return cloned;
