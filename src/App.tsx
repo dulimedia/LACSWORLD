@@ -527,10 +527,10 @@ function App() {
       return false;
     };
     
-    // Try immediate setup
+    // Try immediate setup (camera controls should work regardless of HDRI load status)
     if (!setupInitialTarget()) {
       let attempts = 0;
-      const maxAttempts = 30; // 3 seconds max (reduced from 10 seconds)
+      const maxAttempts = 50; // 5 seconds max (increased for mobile)
       
       const interval = setInterval(() => {
         attempts++;
@@ -539,7 +539,16 @@ function App() {
           clearTimeout(timeoutId);
         } else if (attempts >= maxAttempts) {
           clearInterval(interval);
-          console.warn('⚠️ Camera controls initialization timeout after 3 seconds');
+          console.log('⚠️ Camera controls timeout - initializing anyway for mobile compatibility');
+          // Don't block the app - just set fallback target
+          if (orbitControlsRef.current) {
+            try {
+              orbitControlsRef.current.target.set(0, 0, 0);
+              orbitControlsRef.current.update();
+            } catch (e) {
+              console.warn('Camera controls not ready, will initialize on user interaction');
+            }
+          }
         }
       }, 100);
       
@@ -871,8 +880,12 @@ function App() {
     setFloorplanPopupData(null);
   }, []);
   
-  // Start loading progress immediately on mount with failsafe timeout for mobile
+  // Start loading progress immediately on mount with guard to prevent infinite loop and failsafe timeout
+  const loadingInitialized = useRef(false);
   useEffect(() => {
+    if (loadingInitialized.current) return;
+    loadingInitialized.current = true;
+    
     setLoadingPhase('initializing');
     setLoadingProgress(5);
     console.log('🎬 Loading started...');

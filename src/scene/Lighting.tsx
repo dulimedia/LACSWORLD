@@ -41,7 +41,7 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
     envTex = useLoader(RGBELoader, hdriPath) as Texture;
   } catch (err) {
     console.error('❌ HDRI load failed:', hdriPath, err);
-    console.error('❌ Error details:', err instanceof Error ? err.message : String(err));
+    console.error('❌ Full error details:', err instanceof Error ? err.message : String(err));
   }
   
   useEffect(() => {
