@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:auto": "node scripts/next-port.mjs",
     "build": "vite build",
+    "start": "serve dist -l tcp://0.0.0.0:${PORT:-8080} -s",
+    "gcp-build": "npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
     "agent": "node scripts/start-agent.js",
@@ -26,6 +28,7 @@
     "postprocessing": "^6.37.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "serve": "^14.2.0",
     "three": "^0.162.0",
     "three-stdlib": "^2.36.0",
     "zustand": "^5.0.8"

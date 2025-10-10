@@ -218,7 +218,8 @@ const SingleModelGLB: React.FC<{
         'environment/white wall.glb',
         'environment/frame-raw-14.glb',
         'environment/roof and walls.glb',
-        'environment/maryland street .glb'
+        'environment/maryland street .glb',
+        'environment/beaudry ave.glb'
       ]);
 
       const isBoxFile = fileName.startsWith('boxes/');
@@ -505,7 +506,8 @@ const UnitWarehouseComponent: React.FC<UnitWarehouseProps> = ({
     'environment/white wall.glb',
     'environment/frame-raw-14.glb',
     'environment/roof and walls.glb',
-    'environment/maryland street .glb'
+    'environment/maryland street .glb',
+    'environment/beaudry ave.glb'
   ], []);
 
   const boxFiles = useMemo(() => {

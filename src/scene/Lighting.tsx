@@ -1,5 +1,5 @@
 import { useMemo, useEffect } from "react";
-import { useThree, useLoader } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import { PerfFlags } from "../perf/PerfFlags";
 import { PMREMGenerator, SRGBColorSpace, EquirectangularReflectionMapping, CineonToneMapping, ACESFilmicToneMapping, Texture, DirectionalLight, OrthographicCamera, HemisphereLight, VSMShadowMap, PCFSoftShadowMap } from "three";
 import { RGBELoader } from "three-stdlib";
@@ -26,8 +26,12 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
   }, [gl, exposure]);
 
   // HDRI → PMREM with error handling and mobile optimization
-  // Mobile uses lighter qwantani (4MB), desktop uses kloofendal (5.2MB)
+  // Mobile: Skip HDRI entirely for iOS Safari (causes crashes)
   const hdriPath = useMemo(() => {
+    if (PerfFlags.isIOS) {
+      console.log(`🌍 Skipping HDRI on iOS Safari (memory safety)`);
+      return null;
+    }
     const path = PerfFlags.tier === "desktopHigh" 
       ? "textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr"
       : "textures/qwantani_noon_puresky_2k.hdr";
@@ -36,33 +40,53 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
     return url;
   }, []);
   
-  let envTex: Texture | null = null;
-  try {
-    envTex = useLoader(RGBELoader, hdriPath) as Texture;
-  } catch (err) {
-    console.error('❌ HDRI load failed:', hdriPath, err);
-    console.error('❌ Full error details:', err instanceof Error ? err.message : String(err));
-  }
-  
   useEffect(() => {
-    if (!envTex) {
-      console.warn('⚠️ No HDRI texture available, using fallback environment');
+    if (!hdriPath) {
+      console.log('⚠️ No HDRI path (iOS fallback mode)');
       return;
     }
+
+    let cancelled = false;
+    const loader = new RGBELoader();
     
-    try {
-      envTex.mapping = EquirectangularReflectionMapping;
-      const pmrem = new PMREMGenerator(gl);
-      pmrem.compileEquirectangularShader();
-      const { texture } = pmrem.fromEquirectangular(envTex);
-      scene.environment = texture;
-      envTex.dispose();
-      console.log('✅ HDRI environment loaded:', hdriPath);
-      return () => texture?.dispose();
-    } catch (err) {
-      console.error('❌ HDRI processing failed:', err);
-    }
-  }, [envTex, gl, scene, hdriPath]);
+    const loadTimeout = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('⚠️ HDRI load timeout (8s), continuing without environment map');
+        cancelled = true;
+      }
+    }, 8000);
+    
+    loader.load(
+      hdriPath,
+      (texture) => {
+        if (cancelled) return;
+        clearTimeout(loadTimeout);
+        
+        try {
+          texture.mapping = EquirectangularReflectionMapping;
+          const pmrem = new PMREMGenerator(gl);
+          pmrem.compileEquirectangularShader();
+          const { texture: envMap } = pmrem.fromEquirectangular(texture);
+          scene.environment = envMap;
+          texture.dispose();
+          console.log('✅ HDRI environment loaded:', hdriPath);
+        } catch (err) {
+          console.error('❌ HDRI processing failed:', err);
+        }
+      },
+      undefined,
+      (err) => {
+        if (cancelled) return;
+        clearTimeout(loadTimeout);
+        console.error('❌ HDRI load failed:', hdriPath, err);
+      }
+    );
+    
+    return () => {
+      cancelled = true;
+      clearTimeout(loadTimeout);
+    };
+  }, [hdriPath, gl, scene]);
 
   // Enhanced multi-light setup for photorealism
   useEffect(() => {

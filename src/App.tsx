@@ -583,15 +583,15 @@ function App() {
     }
   }, [modelsLoading]);
 
-  // Fallback: hide loading screen after 12 seconds if something goes wrong
+  // Fallback: hide loading screen after 8 seconds if something goes wrong (Safari iOS safety)
   useEffect(() => {
     const fallbackTimer = setTimeout(() => {
-      console.warn('⚠️ Loading timeout reached (12s), forcing completion');
+      console.warn('⚠️ Loading timeout reached (8s), forcing completion');
       setLoadingProgress(100);
       setLoadingPhase('complete');
       setEffectsReady(true);
       setTimeout(() => setModelsLoading(false), 300);
-    }, 12000);
+    }, 8000);
     
     return () => clearTimeout(fallbackTimer);
   }, []);
