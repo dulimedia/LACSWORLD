@@ -85,7 +85,7 @@ const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRBerrxFj5qKyql
 const LegacyHDRIEnvironment = React.memo(() => {
   return (
     <Environment
-      files="/textures/qwantani_noon_puresky_2k.hdr"
+      files={assetUrl("textures/qwantani_noon_puresky_2k.hdr")}
       background={false} // Sky component handles background
       backgroundIntensity={0.8}
       environmentIntensity={0.35} // Reduced for realism
@@ -1022,7 +1022,7 @@ function App() {
         >
           {/* Environment - HDRI lighting */}
           <Environment
-            files="/textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr"
+            files={assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")}
             background={true}
             backgroundIntensity={1.6}
             environmentIntensity={1.2}

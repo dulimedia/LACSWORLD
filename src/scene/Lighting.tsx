@@ -3,6 +3,7 @@ import { useThree, useLoader } from "@react-three/fiber";
 import { PerfFlags } from "../perf/PerfFlags";
 import { PMREMGenerator, SRGBColorSpace, EquirectangularReflectionMapping, CineonToneMapping, ACESFilmicToneMapping, Texture, DirectionalLight, OrthographicCamera, HemisphereLight, VSMShadowMap, PCFSoftShadowMap } from "three";
 import { RGBELoader } from "three-stdlib";
+import { assetUrl } from "../lib/assets";
 
 type Props = {
   hdriUrl?: string;      // recommend 2k KTX2 or small HDR
@@ -26,7 +27,7 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
 
   // HDRI → PMREM with error handling (deleted 4K HDR, now using 2K for all devices)
   const hdriPath = PerfFlags.tier === "desktopHigh" 
-    ? "/textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr" 
+    ? assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")
     : hdriUrl;
   
   let envTex: Texture | null = null;
