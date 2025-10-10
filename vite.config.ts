@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// GitHub Pages requires serving under /threejs-visualizer-/
+// GitHub Pages requires serving under /LACS-WORLD/
 // Local dev must be served from / (root)
 const isProd = process.env.NODE_ENV === 'production'
 
 export default defineConfig({
   plugins: [react()],
-  base: isProd ? '/threejs-visualizer-/' : '/',
+  base: isProd ? '/LACS-WORLD/' : '/',
   server: {
     host: '0.0.0.0',
     port: 3092,
