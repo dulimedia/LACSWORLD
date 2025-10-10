@@ -36,13 +36,7 @@
     "@types/three": "^0.162.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
-    "canvas": "^3.2.0",
-    "csv-parse": "^6.1.0",
-    "pdf-lib": "^1.17.1",
-    "pdf-poppler": "^0.2.1",
-    "pdf2pic": "^3.2.0",
     "postcss": "^8.4.35",
-    "sharp": "^0.34.3",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "vite": "^5.4.2"
