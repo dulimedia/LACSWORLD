@@ -27,6 +27,7 @@ import { SceneDebugUI, SceneDebugSettings } from './components/SceneDebugUI';
 import { UnitHoverPreview } from './components/UnitHoverPreview';
 import { SafariErrorBoundary } from './components/SafariErrorBoundary';
 import { AdaptivePerformance } from './components/PerformanceMonitor';
+import { MobilePerformanceMonitor } from './components/MobilePerformanceMonitor';
 import { GodRays } from './scene/GodRays';
 import { Lighting } from './scene/Lighting';
 import { useUnitStore } from './stores/useUnitStore';
@@ -870,7 +871,7 @@ function App() {
     setFloorplanPopupData(null);
   }, []);
   
-  // Start loading progress immediately on mount
+  // Start loading progress immediately on mount with failsafe timeout for mobile
   useEffect(() => {
     setLoadingPhase('initializing');
     setLoadingProgress(5);
@@ -889,8 +890,20 @@ function App() {
       clearInterval(earlyProgress);
     }, 1000);
     
-    return () => clearInterval(earlyProgress);
-  }, []);
+    // Failsafe: force complete after 15 seconds on mobile (30s on desktop)
+    const failsafeTimeout = setTimeout(() => {
+      if (loadingPhase !== 'complete') {
+        console.warn('⚠️ Loading timeout reached, forcing completion');
+        setLoadingPhase('complete');
+        setLoadingProgress(100);
+      }
+    }, deviceCapabilities.isMobile ? 15000 : 30000);
+    
+    return () => {
+      clearInterval(earlyProgress);
+      clearTimeout(failsafeTimeout);
+    };
+  }, [deviceCapabilities.isMobile, loadingPhase]);
 
   const handleModelsLoadingProgress = useCallback((loaded: number, total: number) => {
     // Map model loading to 15-70% of progress bar
@@ -1076,6 +1089,9 @@ function App() {
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
+          
+          {/* Mobile Performance Monitor */}
+          <MobilePerformanceMonitor />
           
           {/* Performance Optimizations - DISABLED for testing */}
           {/* <AdaptivePixelRatio />

@@ -10,10 +10,10 @@ type Props = {
   exposure?: number;     // default 0.9
 };
 
-export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7 }: Props) {
+export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.77 }: Props) {
   const { gl, scene } = useThree();
 
-  // Enhanced color pipeline with better shadow support
+  // Enhanced color pipeline with better shadow support (+10% brightness)
   useEffect(() => {
     gl.outputColorSpace = SRGBColorSpace;
     gl.toneMapping = ACESFilmicToneMapping;
@@ -25,16 +25,23 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
     }
   }, [gl, exposure]);
 
-  // HDRI → PMREM with error handling (deleted 4K HDR, now using 2K for all devices)
-  const hdriPath = PerfFlags.tier === "desktopHigh" 
-    ? assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")
-    : hdriUrl;
+  // HDRI → PMREM with error handling and mobile optimization
+  // Mobile uses lighter qwantani (4MB), desktop uses kloofendal (5.2MB)
+  const hdriPath = useMemo(() => {
+    const path = PerfFlags.tier === "desktopHigh" 
+      ? "textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr"
+      : "textures/qwantani_noon_puresky_2k.hdr";
+    const url = assetUrl(path);
+    console.log(`🌍 Loading HDRI for ${PerfFlags.tier}:`, url);
+    return url;
+  }, []);
   
   let envTex: Texture | null = null;
   try {
     envTex = useLoader(RGBELoader, hdriPath) as Texture;
   } catch (err) {
     console.error('❌ HDRI load failed:', hdriPath, err);
+    console.error('❌ Error details:', err instanceof Error ? err.message : String(err));
   }
   
   useEffect(() => {
@@ -63,13 +70,13 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
     const old = scene.children.filter(o => o.userData.__appLight);
     old.forEach(o => scene.remove(o));
 
-    // 1. Hemisphere light for soft ambient fill (prevents pitch black shadows)
-    const hemi = new HemisphereLight(0xffffff, 0x555555, 0.3);
+    // 1. Hemisphere light for soft ambient fill (+10% brightness)
+    const hemi = new HemisphereLight(0xffffff, 0x555555, 0.33);
     hemi.userData.__appLight = true;
     scene.add(hemi);
 
-    // 2. Main sun with subtle warmth (50% brighter for well-lit scene)
-    const sun = new DirectionalLight(0xfff4e6, 5.25);
+    // 2. Main sun with subtle warmth (+10% brightness: 5.25 → 5.78)
+    const sun = new DirectionalLight(0xfff4e6, 5.78);
     sun.position.set(50, 120, -60);
 
     if (PerfFlags.dynamicShadows) {
