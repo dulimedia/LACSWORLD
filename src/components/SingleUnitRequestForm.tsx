@@ -15,6 +15,8 @@ export const SingleUnitRequestForm: React.FC<SingleUnitRequestFormProps> = ({
   unitKey,
   unitName
 }) => {
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +27,23 @@ export const SingleUnitRequestForm: React.FC<SingleUnitRequestFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Handle mounting and animation timing
+  React.useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      const timer = setTimeout(() => {
+        setIsAnimating(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      setIsAnimating(false);
+      const timeout = setTimeout(() => {
+        setShouldRender(false);
+      }, 350);
+      return () => clearTimeout(timeout);
+    }
+  }, [isOpen]);
 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
@@ -108,17 +127,34 @@ Sent from LA Center Unit Request System
   const deviceCapabilities = useMemo(() => detectDevice(), []);
   const isMobile = deviceCapabilities.isMobile;
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex z-50" style={{
-      alignItems: isMobile ? 'flex-start' : 'center',
-      justifyContent: 'center',
-      paddingTop: isMobile ? '80px' : '0px'
-    }}>
-      <div className={`bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-y-auto transition-all duration-500 ease-in-out transform ${
-        isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[90vh]'
-      } ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`}>
+    <div 
+      className="fixed inset-0 flex z-[70]"
+      style={{
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isAnimating ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0)',
+        backdropFilter: isAnimating ? 'blur(4px)' : 'blur(0px)',
+        opacity: isAnimating ? 1 : 0,
+        transition: 'all 300ms ease-in-out',
+        pointerEvents: isAnimating ? 'auto' : 'none'
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div 
+        className={`bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-y-auto ${
+          isMobile ? 'max-h-[calc(100vh-100px)]' : 'max-h-[90vh]'
+        }`}
+        style={{
+          transform: isAnimating ? 'scale(1)' : 'scale(0.95)',
+          opacity: isAnimating ? 1 : 0,
+          transition: 'all 300ms ease-in-out'
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
@@ -127,10 +163,10 @@ Sent from LA Center Unit Request System
           </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors duration-150"
+            className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors duration-150"
             disabled={isSubmitting}
           >
-            <X size={16} className="text-gray-600" />
+            <X size={24} className="text-gray-600" />
           </button>
         </div>
 

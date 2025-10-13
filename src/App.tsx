@@ -28,6 +28,7 @@ import { UnitHoverPreview } from './components/UnitHoverPreview';
 import { SafariErrorBoundary } from './components/SafariErrorBoundary';
 import { AdaptivePerformance } from './components/PerformanceMonitor';
 import { MobilePerformanceMonitor } from './components/MobilePerformanceMonitor';
+import { GPUTelemetry } from './components/GPUTelemetry';
 import { GodRays } from './scene/GodRays';
 import { Lighting } from './scene/Lighting';
 import { useUnitStore } from './stores/useUnitStore';
@@ -37,6 +38,7 @@ import { useCsvUnitData } from './hooks/useCsvUnitData';
 import { emitEvent, getTimestamp } from './lib/events';
 import { validateAllMaterials, setupRendererSafety } from './dev/MaterialValidator';
 import { runDuplicateAudit } from './dev/DuplicateAudit';
+import { isLowMemoryDevice, enterLowMemoryFallback } from './runtime/mobileProfile';
 
 
 // Component to capture scene and gl refs + setup safety
@@ -53,6 +55,29 @@ const SceneCapture = ({ sceneRef, glRef }: { sceneRef: React.RefObject<THREE.Sce
       setupRendererSafety(gl);
       setupComplete.current = true;
     }
+    
+    // WebGL context loss handler
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.error('🚨 WebGL context lost:', event);
+      // Only enter low-memory mode on iOS/mobile devices
+      if (isLowMemoryDevice()) {
+        console.error('❌ Entering low-memory fallback (mobile only)...');
+        enterLowMemoryFallback(scene);
+      }
+    };
+    
+    const handleContextRestored = () => {
+      console.log('✅ WebGL context restored');
+    };
+    
+    gl.domElement.addEventListener('webglcontextlost', handleContextLost);
+    gl.domElement.addEventListener('webglcontextrestored', handleContextRestored);
+    
+    return () => {
+      gl.domElement.removeEventListener('webglcontextlost', handleContextLost);
+      gl.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
+    };
   }, [scene, gl, sceneRef, glRef]);
   
   // Run material validation after scene loads
@@ -828,8 +853,7 @@ function App() {
     if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
       const distanceBefore = controls.distance;
-      controls.dolly(0.85, true); // Zoom in (less than 1.0 to move camera closer)
-      // Log distance after a brief delay to capture the change
+      controls.dolly(3, true);
       setTimeout(() => {
         const distanceAfter = controls.distance;
         console.log(`🔍 ZoomIn → distance ${distanceBefore.toFixed(2)} → ${distanceAfter.toFixed(2)}`);
@@ -844,8 +868,7 @@ function App() {
     if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
       const distanceBefore = controls.distance;
-      controls.dolly(-0.35, true); // Zoom out (negative value to move camera away)
-      // Log distance after a brief delay to capture the change
+      controls.dolly(-3, true);
       setTimeout(() => {
         const distanceAfter = controls.distance;
         console.log(`🔍 ZoomOut → distance ${distanceBefore.toFixed(2)} → ${distanceAfter.toFixed(2)}`);
@@ -1026,7 +1049,7 @@ function App() {
         
         <Canvas
           shadows
-          dpr={Math.min(window.devicePixelRatio, deviceCapabilities.isMobile ? 1.5 : 1.8)}
+          dpr={Math.min(window.devicePixelRatio, isLowMemoryDevice() ? 1.0 : (deviceCapabilities.isMobile ? 1.5 : 1.8))}
           camera={{ position: [-10, 10, -14], fov: 45, near: 0.1, far: 1000 }}
           style={{ 
             width: '100%', 
@@ -1034,8 +1057,8 @@ function App() {
             filter: "none"
           }}
           gl={{
-            powerPreference: "high-performance",
-            antialias: false,
+            powerPreference: isLowMemoryDevice() ? "low-power" : "high-performance",
+            antialias: !isLowMemoryDevice(),
             alpha: false,
             logarithmicDepthBuffer: false,
             preserveDrawingBuffer: false,
@@ -1043,17 +1066,20 @@ function App() {
             depth: true,
             premultipliedAlpha: false,
             failIfMajorPerformanceCaveat: false,
+            precision: isLowMemoryDevice() ? "mediump" : "highp",
           }}
           frameloop="always"
         >
-          {/* Environment - HDRI lighting */}
-          <Environment
-            files={assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")}
-            background={true}
-            backgroundIntensity={1.6}
-            environmentIntensity={1.2}
-            resolution={1024}
-          />
+          {/* Environment - HDRI lighting (disabled on iOS for memory) */}
+          {!isLowMemoryDevice() && (
+            <Environment
+              files={assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")}
+              background={true}
+              backgroundIntensity={1.6}
+              environmentIntensity={1.2}
+              resolution={1024}
+            />
+          )}
           
           {/* Lighting System - unified and optimized */}
           <Lighting 
@@ -1097,14 +1123,17 @@ function App() {
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* God Rays Effect - delayed to prevent context loss */}
-          {effectsReady && <GodRays />}
+          {/* God Rays Effect - disabled on iOS */}
+          {effectsReady && !isLowMemoryDevice() && <GodRays />}
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
           
           {/* Mobile Performance Monitor */}
           <MobilePerformanceMonitor />
+          
+          {/* GPU Telemetry for iOS debugging */}
+          <GPUTelemetry />
           
           {/* Performance Optimizations - DISABLED for testing */}
           {/* <AdaptivePixelRatio />
