@@ -17,7 +17,6 @@ import {
   Sliders,
   Home
 } from 'lucide-react';
-import Collapse from '../components/ui/Collapse';
 import { useExploreState, type UnitRecord } from '../store/exploreState';
 import { useGLBState } from '../store/glbState';
 import { useUnitStore } from '../stores/useUnitStore';
@@ -65,8 +64,6 @@ interface BuildingNodeProps {
   onToggleExpanded: () => void;
   onBuildingClick: () => void;
   onUnitSelect?: (unitData: any) => void;
-  expandedFloors: Record<string, boolean>;
-  setExpandedFloors: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 interface FloorNodeProps {
@@ -292,11 +289,10 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   isExpanded,
   onToggleExpanded,
   onBuildingClick,
-  onUnitSelect,
-  expandedFloors,
-  setExpandedFloors
+  onUnitSelect
 }) => {
   const { getFloorList, getUnitsByFloor, getUnitData } = useExploreState();
+  const [expandedFloors, setExpandedFloors] = useState<Record<string, boolean>>({});
   
   // Get filter state from parent component context
   const filters = useExploreState(state => ({
@@ -347,15 +343,7 @@ const BuildingNode: React.FC<BuildingNodeProps> = ({
   }, [building, floors, getUnitsByFloor, getUnitData, filters]);
 
   const toggleFloorExpanded = (floor: string) => {
-    setExpandedFloors(prev => {
-      const isCurrentlyExpanded = prev[floor];
-      
-      if (!isCurrentlyExpanded) {
-        return { [floor]: true };
-      } else {
-        return { ...prev, [floor]: false };
-      }
-    });
+    setExpandedFloors(prev => ({ ...prev, [floor]: !prev[floor] }));
   };
 
   const handleFloorClick = (floor: string) => {
@@ -437,25 +425,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     setShow3DPopup
   } = exploreState;
   
-  const [isAnimating, setIsAnimating] = useState(false);
-  
-  useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        setIsAnimating(true);
-      }, 50);
-      return () => clearTimeout(timer);
-    } else {
-      setIsAnimating(false);
-    }
-  }, [isOpen]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedBuildings, setExpandedBuildings] = useState<Record<string, boolean>>({});
-  const [expandedFloors, setExpandedFloors] = useState<Record<string, boolean>>({});
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
-  const [pathToClose, setPathToClose] = useState<string | null>(null);
   
   // Set fixed min/max range for better user experience  
   const { actualMinSqft, actualMaxSqft } = useMemo(() => {
@@ -748,57 +722,22 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
     }
   }, [isResizing, handleMouseMove, handleMouseUp]);
   
-  // Handle clearSelection after render phase
-  useEffect(() => {
-    if (pathToClose) {
-      const { clearSelection } = useGLBState.getState();
-      clearSelection();
-      setPathToClose(null);
-    }
-  }, [pathToClose]);
   
   const buildings = getBuildingList();
   
-  // Toggle tree path expansion - auto-collapse behavior
+  // Toggle tree path expansion - simple toggle behavior
   const toggleExpand = (path: string) => {
     setExpandedPaths(prev => {
       const isCurrentlyExpanded = prev[path];
       
       if (!isCurrentlyExpanded) {
-        // Opening a folder - close all other folders at the same level
-        const pathParts = path.split('/');
-        const isBuilding = pathParts.length === 2;
-        const isFloor = pathParts.length === 3;
-        
-        if (isBuilding) {
-          // Close all other buildings, keep only this one open
-          const newPaths: Record<string, boolean> = {};
-          Object.keys(prev).forEach(key => {
-            const keyParts = key.split('/');
-            if (keyParts.length !== 2) {
-              newPaths[key] = prev[key];
-            }
-          });
-          newPaths[path] = true;
-          return newPaths;
-        } else if (isFloor) {
-          // Close all other floors in ANY building, keep only this floor open
-          const newPaths: Record<string, boolean> = {};
-          Object.keys(prev).forEach(key => {
-            const keyParts = key.split('/');
-            if (keyParts.length !== 3) {
-              newPaths[key] = prev[key];
-            }
-          });
-          newPaths[path] = true;
-          return newPaths;
-        } else {
-          // For other levels, just expand
-          return { ...prev, [path]: true };
-        }
+        // Opening a folder - just set it to expanded
+        return { ...prev, [path]: true };
       } else {
-        // Closing the folder - schedule clearSelection for after render
-        setPathToClose(path);
+        // Closing the folder - clear selections and toggle it off
+        const { clearSelection } = useGLBState.getState();
+        clearSelection();
+        
         return { ...prev, [path]: false };
       }
     });
@@ -819,15 +758,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   }, [buildings, searchTerm]);
 
   const toggleBuildingExpanded = (building: string) => {
-    setExpandedBuildings(prev => {
-      const isCurrentlyExpanded = prev[building];
-      
-      if (!isCurrentlyExpanded) {
-        return { [building]: true };
-      } else {
-        return { ...prev, [building]: false };
-      }
-    });
+    setExpandedBuildings(prev => ({ ...prev, [building]: !prev[building] }));
   };
 
   const handleBuildingClick = (building: string) => {
@@ -1118,7 +1049,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         
         // Building card for vertical layout
         return (
-          <div key={nodePath} className="w-full bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          <div key={nodePath} className="w-full bg-white bg-opacity-50 backdrop-blur-md border border-white border-opacity-50 rounded-lg shadow-sm overflow-hidden">
             <div
               className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors duration-150 border-b border-gray-100"
               onClick={() => {
@@ -1306,32 +1237,26 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
   return (
     <div 
       ref={panelRef}
-      className={`fixed shadow-xl z-50 flex flex-col transform rounded-lg overflow-hidden ${
+      className={`fixed bg-white bg-opacity-90 backdrop-blur-md shadow-xl border border-white border-opacity-50 z-50 flex flex-col transition-all duration-500 ease-in-out transform rounded-2xl overflow-hidden ${
         isMobile 
-          ? `left-2 right-2 ${isOpen ? 'translate-y-0 scale-100' : '-translate-y-full scale-95 pointer-events-none'}`
-          : `left-2 sm:left-6 ${isOpen ? 'translate-y-0 scale-100' : 'translate-y-full scale-95 pointer-events-none'}`
+          ? `left-10 right-10 ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
+          : `left-14 ${isOpen ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'}`
       }`}
-        style={{
-          width: isMobile ? 'auto' : `${panelWidth}px`,
-          height: `${panelHeight}px`,
-          backgroundColor: isAnimating ? 'rgba(255, 255, 255, 0.98)' : 'rgba(255, 255, 255, 0)',
-          borderColor: isAnimating ? 'rgba(229, 231, 235, 1)' : 'rgba(229, 231, 235, 0)',
-          borderWidth: '1px',
-          borderStyle: 'solid',
-          backdropFilter: isAnimating ? 'blur(8px)' : 'blur(0px)',
-          transition: 'all 300ms ease-in-out',
-          ...(isMobile 
-            ? { 
-                top: '60px',
-                maxHeight: 'calc(100vh - 120px)' 
-              }
-            : { 
-                bottom: window.innerWidth < 768 ? '60px' : '48px',
-                maxHeight: window.innerWidth < 768 ? 'calc(100vh - 120px)' : 'calc(100vh - 96px)'
-              }
-          )
-        }}
-      >
+      style={{
+        width: isMobile ? 'auto' : `${panelWidth}px`,
+        height: `${panelHeight}px`,
+        ...(isMobile 
+          ? { 
+              top: '80px', // Below the top buttons on mobile
+              maxHeight: 'calc(100vh - 160px)' 
+            }
+          : { 
+              bottom: window.innerWidth < 768 ? '80px' : '80px',
+              maxHeight: window.innerWidth < 768 ? 'calc(100vh - 160px)' : 'calc(100vh - 160px)'
+            }
+        )
+      }}
+    >
       {/* Top resize handle */}
       <div
         className="absolute top-0 left-0 right-0 h-1 cursor-n-resize hover:bg-blue-500 hover:bg-opacity-30 transition-colors duration-150 z-10"
@@ -1344,7 +1269,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
         onMouseDown={handleMouseDown('width')}
       />
       {/* Header */}
-      <div className={`bg-white border-b border-gray-200 px-4 py-2 transition-all duration-300 delay-75 ${
+      <div className={`bg-white bg-opacity-90 backdrop-blur-md border-b border-white border-opacity-50 px-4 py-2 transition-all duration-300 delay-75 ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
       }`}>
         <div className="flex items-center justify-between">
@@ -1360,11 +1285,11 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 
+            className="flex items-center justify-center w-4 h-4 bg-gray-100 hover:bg-gray-200 
                        rounded-md transition-colors duration-150"
             title="Close Panel"
           >
-            <X size={20} className="text-gray-600" />
+            <X size={10} className="text-gray-600" />
           </button>
         </div>
       </div>
@@ -1378,7 +1303,7 @@ export const ExploreUnitsPanel: React.FC<ExploreUnitsPanelProps> = ({
           {/* Explore Units Panel - Left side */}
           <div className="w-full flex-shrink-0 flex flex-col">
             {/* Filter Section - Now inside the sliding container */}
-            <div className="bg-white border-b border-gray-200 px-3 py-1.5">
+            <div className="bg-white bg-opacity-90 backdrop-blur-md border-b border-gray-200 px-3 py-1.5">
               <div className="space-y-1">
                 {/* Square Footage Filter */}
                 <div className="space-y-0.5">

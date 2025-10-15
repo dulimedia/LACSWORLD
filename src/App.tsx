@@ -28,7 +28,6 @@ import { UnitHoverPreview } from './components/UnitHoverPreview';
 import { SafariErrorBoundary } from './components/SafariErrorBoundary';
 import { AdaptivePerformance } from './components/PerformanceMonitor';
 import { MobilePerformanceMonitor } from './components/MobilePerformanceMonitor';
-import { GPUTelemetry } from './components/GPUTelemetry';
 import { GodRays } from './scene/GodRays';
 import { Lighting } from './scene/Lighting';
 import { useUnitStore } from './stores/useUnitStore';
@@ -38,7 +37,6 @@ import { useCsvUnitData } from './hooks/useCsvUnitData';
 import { emitEvent, getTimestamp } from './lib/events';
 import { validateAllMaterials, setupRendererSafety } from './dev/MaterialValidator';
 import { runDuplicateAudit } from './dev/DuplicateAudit';
-import { isLowMemoryDevice, enterLowMemoryFallback } from './runtime/mobileProfile';
 
 
 // Component to capture scene and gl refs + setup safety
@@ -55,29 +53,6 @@ const SceneCapture = ({ sceneRef, glRef }: { sceneRef: React.RefObject<THREE.Sce
       setupRendererSafety(gl);
       setupComplete.current = true;
     }
-    
-    // WebGL context loss handler
-    const handleContextLost = (event: Event) => {
-      event.preventDefault();
-      console.error('🚨 WebGL context lost:', event);
-      // Only enter low-memory mode on iOS/mobile devices
-      if (isLowMemoryDevice()) {
-        console.error('❌ Entering low-memory fallback (mobile only)...');
-        enterLowMemoryFallback(scene);
-      }
-    };
-    
-    const handleContextRestored = () => {
-      console.log('✅ WebGL context restored');
-    };
-    
-    gl.domElement.addEventListener('webglcontextlost', handleContextLost);
-    gl.domElement.addEventListener('webglcontextrestored', handleContextRestored);
-    
-    return () => {
-      gl.domElement.removeEventListener('webglcontextlost', handleContextLost);
-      gl.domElement.removeEventListener('webglcontextrestored', handleContextRestored);
-    };
   }, [scene, gl, sceneRef, glRef]);
   
   // Run material validation after scene loads
@@ -853,7 +828,8 @@ function App() {
     if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
       const distanceBefore = controls.distance;
-      controls.dolly(3, true);
+      controls.dolly(0.85, true); // Zoom in (less than 1.0 to move camera closer)
+      // Log distance after a brief delay to capture the change
       setTimeout(() => {
         const distanceAfter = controls.distance;
         console.log(`🔍 ZoomIn → distance ${distanceBefore.toFixed(2)} → ${distanceAfter.toFixed(2)}`);
@@ -868,7 +844,8 @@ function App() {
     if (orbitControlsRef.current) {
       const controls = orbitControlsRef.current;
       const distanceBefore = controls.distance;
-      controls.dolly(-3, true);
+      controls.dolly(-0.35, true); // Zoom out (negative value to move camera away)
+      // Log distance after a brief delay to capture the change
       setTimeout(() => {
         const distanceAfter = controls.distance;
         console.log(`🔍 ZoomOut → distance ${distanceBefore.toFixed(2)} → ${distanceAfter.toFixed(2)}`);
@@ -984,8 +961,9 @@ function App() {
 
   return (
     <SafariErrorBoundary>
-      <div style={{ height: '100vh', width: '100vw', position: 'fixed', top: 0, left: 0 }} className="bg-gray-50 flex flex-col overflow-hidden">
-        <div className="flex-1 flex relative" style={{ height: '100%', width: '100%' }}>
+      <div className="app-viewport">
+        <div className="app-layout">
+          <div className="scene-shell">
 {/* CSV loads in background - only show logo loading screen */}
         
         {modelsLoading && (
@@ -1049,7 +1027,7 @@ function App() {
         
         <Canvas
           shadows
-          dpr={Math.min(window.devicePixelRatio, isLowMemoryDevice() ? 1.0 : (deviceCapabilities.isMobile ? 1.5 : 1.8))}
+          dpr={Math.min(window.devicePixelRatio, deviceCapabilities.isMobile ? 1.5 : 1.8)}
           camera={{ position: [-10, 10, -14], fov: 45, near: 0.1, far: 1000 }}
           style={{ 
             width: '100%', 
@@ -1057,8 +1035,8 @@ function App() {
             filter: "none"
           }}
           gl={{
-            powerPreference: isLowMemoryDevice() ? "low-power" : "high-performance",
-            antialias: !isLowMemoryDevice(),
+            powerPreference: "high-performance",
+            antialias: false,
             alpha: false,
             logarithmicDepthBuffer: false,
             preserveDrawingBuffer: false,
@@ -1066,20 +1044,17 @@ function App() {
             depth: true,
             premultipliedAlpha: false,
             failIfMajorPerformanceCaveat: false,
-            precision: isLowMemoryDevice() ? "mediump" : "highp",
           }}
           frameloop="always"
         >
-          {/* Environment - HDRI lighting (disabled on iOS for memory) */}
-          {!isLowMemoryDevice() && (
-            <Environment
-              files={assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")}
-              background={true}
-              backgroundIntensity={1.6}
-              environmentIntensity={1.2}
-              resolution={1024}
-            />
-          )}
+          {/* Environment - HDRI lighting */}
+          <Environment
+            files={assetUrl("textures/kloofendal_48d_partly_cloudy_puresky_2k.hdr")}
+            background={true}
+            backgroundIntensity={1.6}
+            environmentIntensity={1.2}
+            resolution={1024}
+          />
           
           {/* Lighting System - unified and optimized */}
           <Lighting 
@@ -1123,17 +1098,14 @@ function App() {
           {/* Canvas Click Handler for clearing selection */}
           <CanvasClickHandler />
           
-          {/* God Rays Effect - disabled on iOS */}
-          {effectsReady && !isLowMemoryDevice() && <GodRays />}
+          {/* God Rays Effect - delayed to prevent context loss */}
+          {effectsReady && <GodRays />}
           
           {/* Enhanced Camera Controls with proper object framing */}
           <CameraController selectedUnit={selectedUnit} controlsRef={orbitControlsRef} />
           
           {/* Mobile Performance Monitor */}
           <MobilePerformanceMonitor />
-          
-          {/* GPU Telemetry for iOS debugging */}
-          <GPUTelemetry />
           
           {/* Performance Optimizations - DISABLED for testing */}
           {/* <AdaptivePixelRatio />
@@ -1157,20 +1129,28 @@ function App() {
           
           {/* Post-Processing Effects - DISABLED FOR PERFORMANCE */}
         </Canvas>
+          </div>  {/* Close scene-shell */}
         
         
         {/* Mobile Layout - Top controls, bottom camera */}
         {!modelsLoading && deviceCapabilities.isMobile && (
           <>
             {/* Top Controls for Mobile */}
-            <div className="fixed top-6 left-6 right-6 z-40 flex justify-between items-start">
+            <div 
+              className="fixed top-14 left-14 right-14 z-40 flex justify-between items-start"
+              style={{
+                paddingTop: 'env(safe-area-inset-top)',
+                paddingLeft: 'env(safe-area-inset-left)',
+                paddingRight: 'env(safe-area-inset-right)'
+              }}
+            >
               {/* Explore Units Button - Top Left */}
               <button
                 onClick={handleToggleExploreDrawer}
-                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+                className="bg-white bg-opacity-90 backdrop-blur-md hover:bg-white hover:bg-opacity-95 text-gray-800 font-semibold py-3 px-6 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-3 transition-all duration-200 hover:shadow-xl text-base"
               >
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm">Explore Units</span>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span>Explore Units</span>
                 {drawerOpen ? (
                   <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -1185,16 +1165,21 @@ function App() {
               {/* Request Button - Top Right */}
               <button
                 onClick={handleRequestClick}
-                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
+                className="bg-white bg-opacity-90 backdrop-blur-md hover:bg-white hover:bg-opacity-95 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
                 title="Submit a request"
               >
-                <MessageCircle size={16} className="text-gray-600" />
-                <span className="text-sm">Request</span>
+                <MessageCircle size={20} className="text-gray-600" />
+                <span>Request</span>
               </button>
             </div>
 
             {/* Bottom Camera Controls for Mobile */}
-            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40">
+            <div 
+              className="fixed bottom-14 left-1/2 transform -translate-x-1/2 z-40"
+              style={{
+                paddingBottom: 'env(safe-area-inset-bottom)'
+              }}
+            >
               <NavigationControls
                 onRotateLeft={handleRotateLeft}
                 onRotateRight={handleRotateRight}
@@ -1208,11 +1193,11 @@ function App() {
 
         {/* Desktop Layout - Bottom controls */}
         {!modelsLoading && !deviceCapabilities.isMobile && (
-          <div className="fixed bottom-6 left-6 right-6 z-40 flex justify-between items-end">
+          <div className="fixed bottom-14 left-14 right-14 z-40 flex justify-between items-end">
             {/* Explore Units Button - Bottom Left */}
             <button
               onClick={handleToggleExploreDrawer}
-              className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-2 transition-all duration-200 hover:shadow-xl"
+              className="bg-white bg-opacity-90 backdrop-blur-md hover:bg-white hover:bg-opacity-95 text-gray-800 font-semibold py-3 px-6 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 flex items-center space-x-3 transition-all duration-200 hover:shadow-xl text-base"
             >
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               <span className="text-sm">Explore Units</span>
@@ -1232,11 +1217,11 @@ function App() {
               {/* Request Button */}
               <button
                 onClick={handleRequestClick}
-                className="bg-white bg-opacity-55 backdrop-blur-md hover:bg-white hover:bg-opacity-65 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
+                className="bg-white bg-opacity-90 backdrop-blur-md hover:bg-white hover:bg-opacity-95 text-gray-800 font-medium py-2 px-4 rounded-lg shadow-lg border border-white border-opacity-50 hover:border-blue-300 transition-all duration-200 hover:shadow-xl flex items-center space-x-2"
                 title="Submit a request"
               >
-                <MessageCircle size={16} className="text-gray-600" />
-                <span className="text-sm">Request</span>
+                <MessageCircle size={20} className="text-gray-600" />
+                <span>Request</span>
               </button>
             </div>
 
@@ -1281,7 +1266,6 @@ function App() {
         
         {/* Hover Toast - using new component */}
         <HoverToast />
-      </div>
       
       {/* Full Unit Detail Popup */}
       {showFullDetails && (
@@ -1355,7 +1339,8 @@ function App() {
       )}
 
       {/* Sun Position Controls - Removed, values hard-coded */}
-      </div>
+        </div>  {/* Close app-layout */}
+      </div>  {/* Close app-viewport */}
     </SafariErrorBoundary>
   );
 }

@@ -1,10 +1,9 @@
 import { useMemo, useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 import { PerfFlags } from "../perf/PerfFlags";
-import { PMREMGenerator, SRGBColorSpace, EquirectangularReflectionMapping, CineonToneMapping, ACESFilmicToneMapping, Texture, DirectionalLight, OrthographicCamera, HemisphereLight, VSMShadowMap, PCFSoftShadowMap, NoToneMapping, PCFShadowMap } from "three";
+import { PMREMGenerator, SRGBColorSpace, EquirectangularReflectionMapping, CineonToneMapping, ACESFilmicToneMapping, Texture, DirectionalLight, OrthographicCamera, HemisphereLight, VSMShadowMap, PCFSoftShadowMap } from "three";
 import { RGBELoader } from "three-stdlib";
 import { assetUrl } from "../lib/assets";
-import { isLowMemoryDevice, getMobileShadowMapSize } from "../runtime/mobileProfile";
 
 type Props = {
   hdriUrl?: string;      // recommend 2k KTX2 or small HDR
@@ -15,23 +14,22 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
   const { gl, scene } = useThree();
 
   // Enhanced color pipeline with better shadow support (+10% brightness)
-  // iOS: Disable tone mapping for memory savings
   useEffect(() => {
     gl.outputColorSpace = SRGBColorSpace;
-    gl.toneMapping = isLowMemoryDevice() ? NoToneMapping : ACESFilmicToneMapping;
-    gl.toneMappingExposure = isLowMemoryDevice() ? 1.0 : exposure;
+    gl.toneMapping = ACESFilmicToneMapping;
+    gl.toneMappingExposure = exposure;
     
-    // iOS: Use lighter PCF shadows instead of PCFSoft
+    // Use PCFSoft shadows for compatibility (VSM can cause issues)
     if (PerfFlags.dynamicShadows) {
-      gl.shadowMap.type = isLowMemoryDevice() ? PCFShadowMap : PCFSoftShadowMap;
+      gl.shadowMap.type = PCFSoftShadowMap;
     }
   }, [gl, exposure]);
 
   // HDRI → PMREM with error handling and mobile optimization
   // Mobile: Skip HDRI entirely for iOS Safari (causes crashes)
   const hdriPath = useMemo(() => {
-    if (PerfFlags.isIOS || isLowMemoryDevice()) {
-      console.log(`🌍 Skipping HDRI on low-memory device (memory safety)`);
+    if (PerfFlags.isIOS) {
+      console.log(`🌍 Skipping HDRI on iOS Safari (memory safety)`);
       return null;
     }
     const path = PerfFlags.tier === "desktopHigh" 
@@ -43,6 +41,9 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
   }, []);
   
   useEffect(() => {
+    console.log('🚫 HDRI DISABLED - Testing sun-only lighting');
+    return;
+    
     if (!hdriPath) {
       console.log('⚠️ No HDRI path (iOS fallback mode)');
       return;
@@ -97,9 +98,11 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
     old.forEach(o => scene.remove(o));
 
     // 1. Hemisphere light for soft ambient fill (+10% brightness)
-    const hemi = new HemisphereLight(0xffffff, 0x555555, 0.33);
-    hemi.userData.__appLight = true;
-    scene.add(hemi);
+    // DISABLED FOR TESTING - Sun only
+    // const hemi = new HemisphereLight(0xffffff, 0x555555, 0.33);
+    // hemi.userData.__appLight = true;
+    // scene.add(hemi);
+    console.log('🚫 HEMISPHERE DISABLED - Testing sun-only lighting');
 
     // 2. Main sun with subtle warmth (+10% brightness: 5.25 → 5.78)
     const sun = new DirectionalLight(0xfff4e6, 5.78);
@@ -107,12 +110,11 @@ export function Lighting({ hdriUrl = "/env/qwantani_noon_2k.hdr", exposure = 0.7
 
     if (PerfFlags.dynamicShadows) {
       sun.castShadow = true;
-      // iOS: Drastically reduced shadow map size (512) for memory
-      const shadowMapSize = getMobileShadowMapSize();
-      sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
+      // Optimized shadow map for performance
+      sun.shadow.mapSize.set(1536, 1536);
       sun.shadow.bias = -0.0003;
       (sun.shadow as any).normalBias = 0.5;
-      sun.shadow.radius = isLowMemoryDevice() ? 0.5 : 1.0;
+      sun.shadow.radius = 1.0;
 
       // Optimized ortho frustum
       const cam = sun.shadow.camera as OrthographicCamera;
